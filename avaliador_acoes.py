@@ -613,6 +613,52 @@ def analise_setorial_noticias(info, codigo_acao):
 # ====== MELHORIA: Recomendações personalizadas ======
 def analise_sugestiva(info, perfil):
     st.subheader("📌 Recomendações por Horizonte de Investimento e Perfil")
+    
+    # Definir pesos por perfil
+    pesos = {
+        'Crescimento (busca valorização)': {
+            'roe': 3,
+            'pl': 2,
+            'crescimento_lucro': 3,
+            'margem_ebitda': 2,
+            'dividend_yield': 1,
+            'divida_ebitda': 2,
+            'liquidez': 1
+        },
+        'Dividendos (busca renda passiva)': {
+            'dividend_yield': 3,
+            'payout': 2,
+            'divida_ebitda': 2,
+            'liquidez': 2,
+            'roe': 1,
+            'pl': 1,
+            'crescimento_lucro': 1
+        },
+        'Baixa tolerância a risco': {
+            'divida_ebitda': 3,
+            'liquidez': 3,
+            'dividend_yield': 2,
+            'margem_ebitda': 2,
+            'pl': 1,
+            'roe': 1
+        },
+        'Alta tolerância a risco': {
+            'crescimento_lucro': 3,
+            'roe': 2,
+            'pl': 2,
+            'margem_ebitda': 2,
+            'divida_ebitda': 1
+        },
+        'Neutro': {
+            'roe': 2,
+            'pl': 2,
+            'dividend_yield': 2,
+            'divida_ebitda': 2,
+            'liquidez': 2
+        }
+    }
+
+    # Obter indicadores
     pl = info.get('trailingPE')
     dy = info.get('dividendYield')
     roe = info.get('returnOnEquity')
@@ -622,150 +668,218 @@ def analise_sugestiva(info, perfil):
     debt_ebitda = info.get('debtToEbitda')
     current_ratio = info.get('currentRatio')
     payout_ratio = info.get('payoutRatio')
-
-    # Novas métricas
     ebitda_margins = info.get('ebitdaMargins')
     operating_margins = info.get('operatingMargins')
     operating_cashflow = info.get('operatingCashflow')
     free_cashflow = info.get('freeCashflow')
+    
+    # Tentar obter crescimento do lucro (se disponível)
+    try:
+        acao = yf.Ticker(info.get('symbol'))
+        historico = acao.history(period="2y")
+        if not historico.empty and 'earningsPerShare' in info:
+            lpa_atual = info['earningsPerShare']
+            lpa_anterior = historico['Close'].iloc[-252] / pl if pl is not None else None
+            if lpa_anterior and lpa_anterior > 0:
+                crescimento_lucro = (lpa_atual - lpa_anterior) / lpa_anterior
+            else:
+                crescimento_lucro = None
+        else:
+            crescimento_lucro = None
+    except:
+        crescimento_lucro = None
 
     sugestoes = []
     score = 0
-    # Ajustar max_score para acomodar novas métricas
-    max_score = 15 # Aumentado para refletir mais critérios
+    max_score = 0
 
-    # Pontuação e sugestões baseadas no perfil
-
-    # Crescimento (busca valorização) / Longo prazo
-    if 'crescimento' in perfil.lower() or 'longo' in perfil.lower():
+    # Obter pesos do perfil selecionado
+    perfil_pesos = pesos.get(perfil, pesos['Neutro'])
+    
+    # Análise para perfil de Crescimento
+    if 'crescimento' in perfil.lower():
+        # ROE
         if roe is not None:
-            if roe > 0.15: # Bom ROE para crescimento
-                sugestoes.append("📈 ROE forte (Mais de 15%). Potencial de crescimento a longo prazo.")
-                score += 2
+            peso = perfil_pesos['roe']
+            max_score += peso * 2
+            if roe > 0.15:
+                sugestoes.append(f"📈 ROE forte ({roe*100:.1f}%). Excelente para crescimento.")
+                score += peso * 2
             elif roe > 0.08:
-                 sugestoes.append("ℹ️ ROE moderado. Rentabilidade razoável sobre o patrimônio.")
-                 score += 1
+                sugestoes.append(f"✅ ROE moderado ({roe*100:.1f}%). Aceitável para crescimento.")
+                score += peso
+            else:
+                sugestoes.append(f"⚠️ ROE baixo ({roe*100:.1f}%). Atenção para perfil crescimento.")
+                score -= peso
+
+        # Crescimento do Lucro
+        if crescimento_lucro is not None:
+            peso = perfil_pesos['crescimento_lucro']
+            max_score += peso * 2
+            if crescimento_lucro > 0.15:
+                sugestoes.append(f"📈 Crescimento do lucro forte ({crescimento_lucro*100:.1f}%). Muito positivo.")
+                score += peso * 2
+            elif crescimento_lucro > 0.05:
+                sugestoes.append(f"✅ Crescimento do lucro moderado ({crescimento_lucro*100:.1f}%).")
+                score += peso
+            else:
+                sugestoes.append(f"⚠️ Crescimento do lucro baixo ({crescimento_lucro*100:.1f}%).")
+                score -= peso
+
+        # P/L
         if pl is not None:
-            if pl < 15: # P/L razoável para crescimento
-                sugestoes.append("✅ P/L razoável (Abaixo de 15). Indicativo de valorização.")
-                score += 2
+            peso = perfil_pesos['pl']
+            max_score += peso
+            if pl < 15:
+                sugestoes.append(f"✅ P/L razoável ({pl:.1f}). Bom para crescimento.")
+                score += peso
             elif pl < 25:
-                sugestoes.append("ℹ️ P/L moderado (Entre 15 e 25). Atenção ao valuation.")
-                score += 1
+                sugestoes.append(f"ℹ️ P/L moderado ({pl:.1f}).")
+                score += peso/2
             else:
-                sugestoes.append("⚠️ P/L elevado (Acima de 25). Ação pode estar cara para o perfil crescimento.")
-                score -= 1
-        
-        # Adicionar critérios de crescimento baseados em margens e fluxo de caixa
-        if ebitda_margins is not None and ebitda_margins > 0.20: # Boa margem EBITDA
-            sugestoes.append("📈 Alta Margem EBITDA (Mais de 20%). Sinal de eficiência operacional.")
-            score += 1
-        if operating_margins is not None and operating_margins > 0.15: # Boa margem Operacional
-            sugestoes.append("📈 Alta Margem Operacional (Mais de 15%). Indicia boa gestão de custos.")
-            score += 1
-        if free_cashflow is not None and free_cashflow > 0: # Gerando Fluxo de Caixa Livre
-            sugestoes.append("💰 Gerando Fluxo de Caixa Livre positivo. Essencial para reinvestimento e crescimento.")
-            score += 1
+                sugestoes.append(f"⚠️ P/L elevado ({pl:.1f}).")
+                score -= peso
 
-    # Dividendos (busca renda passiva)
+    # Análise para perfil de Dividendos
     if 'dividendos' in perfil.lower():
+        # Dividend Yield
         if dy is not None:
-            if dy > 0.06: # Bom Dividend Yield
-                sugestoes.append("💰 Excelente Dividend Yield (Mais de 6%). Ótimo para renda passiva.")
-                score += 3
+            peso = perfil_pesos['dividend_yield']
+            max_score += peso * 2
+            if dy > 0.06:
+                sugestoes.append(f"💰 Excelente Dividend Yield ({dy*100:.1f}%).")
+                score += peso * 2
             elif dy > 0.04:
-                sugestoes.append("✅ Bom Dividend Yield (Entre 4% e 6%). Boa opção para dividendos.")
-                score += 2
-            elif dy > 0.02:
-                 sugestoes.append("ℹ️ Dividend Yield moderado (Entre 2% e 4%).")
-                 score += 1
+                sugestoes.append(f"✅ Bom Dividend Yield ({dy*100:.1f}%).")
+                score += peso
             else:
-                sugestoes.append("⚠️ Dividend Yield baixo (Abaixo de 2%). Não ideal para foco em dividendos.")
-                score -= 1
-        else:
-             sugestoes.append("ℹ️ Dividend Yield não disponível ou muito baixo.")
-             score -= 1
-        if payout_ratio is not None and payout_ratio > 0.5 and payout_ratio < 1.1: # Payout saudável (distribui lucro)
-             sugestoes.append("✅ Payout Ratio saudável. Empresa distribui parte do lucro como dividendos.")
-             score += 1
-        elif payout_ratio is not None and payout_ratio >= 1.1:
-             sugestoes.append("⚠️ Payout Ratio acima de 100%. Empresa pode estar distribuindo mais do que lucra.")
-             score -= 1
-        # Adicionar critério de fluxo de caixa para dividendos (gerar caixa para pagar proventos)
-        if operating_cashflow is not None and operating_cashflow > 0: # Gerando Fluxo de Caixa Operacional positivo
-             sugestoes.append("💰 Gerando Fluxo de Caixa Operacional positivo. Essencial para sustentar dividendos.")
-             score += 1
+                sugestoes.append(f"⚠️ Dividend Yield baixo ({dy*100:.1f}%).")
+                score -= peso
 
-    # Risco e Saúde Financeira (Baixa tolerância / Neutro)
-    if 'baixa' in perfil.lower() or 'neutro' in perfil.lower():
-        if debt_equity is not None:
-            if debt_equity < 0.8: # Baixa alavancagem
-                sugestoes.append("💪 Baixa alavancagem financeira (Dívida/Patrimônio abaixo de 0.8). Baixo risco financeiro.")
-                score += 2
-            elif debt_equity < 1.5:
-                sugestoes.append("✅ Alavancagem financeira moderada (Dívida/Patrimônio entre 0.8 e 1.5).")
-                score += 1
+        # Payout
+        if payout_ratio is not None:
+            peso = perfil_pesos['payout']
+            max_score += peso
+            if 0.4 <= payout_ratio <= 0.7:
+                sugestoes.append(f"✅ Payout saudável ({payout_ratio*100:.1f}%).")
+                score += peso
+            elif payout_ratio > 0.7:
+                sugestoes.append(f"⚠️ Payout elevado ({payout_ratio*100:.1f}%).")
+                score -= peso
             else:
-                sugestoes.append(f"⚠️ Alavancagem financeira elevada (Dívida/Patrimônio: {debt_equity:.2f}). Maior risco financeiro para perfil conservador.")
-                score -= 2
+                sugestoes.append(f"ℹ️ Payout baixo ({payout_ratio*100:.1f}%).")
+                score += peso/2
+
+    # Análise para perfil de Baixo Risco
+    if 'baixa' in perfil.lower():
+        # Dívida/EBITDA
         if debt_ebitda is not None:
-            if debt_ebitda < 2: # Baixa dívida em relação ao Ebitda
-                 sugestoes.append("💪 Dívida Líquida/EBITDA baixa (Abaixo de 2). Empresa gera caixa para pagar dívida.")
-                 score += 2
+            peso = perfil_pesos['divida_ebitda']
+            max_score += peso * 2
+            if debt_ebitda < 2:
+                sugestoes.append(f"💪 Dívida/EBITDA baixa ({debt_ebitda:.1f}). Excelente para perfil conservador.")
+                score += peso * 2
             elif debt_ebitda < 3.5:
-                 sugestoes.append("✅ Dívida Líquida/EBITDA moderada (Entre 2 e 3.5).")
-                 score += 1
+                sugestoes.append(f"✅ Dívida/EBITDA moderada ({debt_ebitda:.1f}).")
+                score += peso
             else:
-                 sugestoes.append(f"⚠️ Dívida Líquida/EBITDA elevada ({debt_ebitda:.2f}). Atenção ao endividamento.")
-                 score -= 2
+                sugestoes.append(f"⚠️ Dívida/EBITDA elevada ({debt_ebitda:.1f}).")
+                score -= peso
+
+        # Liquidez
         if current_ratio is not None:
-            if current_ratio > 1.8: # Boa liquidez
-                 sugestoes.append("💪 Ótima liquidez corrente (Acima de 1.8). Forte capacidade de pagar dívidas de curto prazo.")
-                 score += 2
+            peso = perfil_pesos['liquidez']
+            max_score += peso * 2
+            if current_ratio > 1.8:
+                sugestoes.append(f"💪 Excelente liquidez ({current_ratio:.1f}).")
+                score += peso * 2
             elif current_ratio > 1.2:
-                 sugestoes.append("✅ Boa liquidez corrente (Entre 1.2 e 1.8). Capacidade saudável de pagamento no curto prazo.")
-                 score += 1
+                sugestoes.append(f"✅ Boa liquidez ({current_ratio:.1f}).")
+                score += peso
             else:
-                 sugestoes.append(f"⚠️ Liquidez corrente baixa ({current_ratio:.2f}). Atenção à capacidade de pagamento no curto prazo.")
-                 score -= 2
+                sugestoes.append(f"⚠️ Liquidez baixa ({current_ratio:.1f}).")
+                score -= peso
 
-        # Adicionar critérios de saúde financeira baseados em margens e fluxo de caixa
-        if ebitda_margins is not None and ebitda_margins > 0.10: # Margem EBITDA razoável para saúde
-             sugestoes.append("✅ Margem EBITDA razoável. Boa capacidade de gerar caixa operacional antes de depreciação/amortização.")
-             score += 1
-        if operating_margins is not None and operating_margins > 0.08: # Margem Operacional razoável para saúde
-             sugestoes.append("✅ Margem Operacional razoável. Indicia controle sobre custos operacionais.")
-             score += 1
-        if operating_cashflow is not None and operating_cashflow > 0: # Gerando Fluxo de Caixa Operacional positivo
-             sugestoes.append("💪 Gerando Fluxo de Caixa Operacional positivo. Fundamental para a sustentabilidade.")
-             score += 1
-
-    # Risco (Alta tolerância)
+    # Análise para perfil de Alto Risco
     if 'alta' in perfil.lower():
-         if debt_equity is not None and debt_equity > 2.5: # Alta alavancagem pode ser tolerada, mas com alerta
-              sugestoes.append(f"ℹ️ Alavancagem alta ({debt_equity:.2f}). Perfil de maior risco pode considerar, mas com cautela.")
+        # Crescimento do Lucro
+        if crescimento_lucro is not None:
+            peso = perfil_pesos['crescimento_lucro']
+            max_score += peso * 2
+            if crescimento_lucro > 0.20:
+                sugestoes.append(f"📈 Crescimento do lucro muito forte ({crescimento_lucro*100:.1f}%).")
+                score += peso * 2
+            elif crescimento_lucro > 0.10:
+                sugestoes.append(f"✅ Crescimento do lucro bom ({crescimento_lucro*100:.1f}%).")
+                score += peso
+            else:
+                sugestoes.append(f"ℹ️ Crescimento do lucro moderado ({crescimento_lucro*100:.1f}%).")
+                score += peso/2
 
-    # Recomendações gerais de Valuation (para todos, exceto se conflitar muito com perfil específico)
-    if 'neutro' in perfil.lower() or ('crescimento' not in perfil.lower() and 'dividendos' not in perfil.lower()):
-        if pl is not None and pl > 25:
-            sugestoes.append(f"⚠️ P/L elevado ({pl:.2f}), atenção ao valuation.")
-        if price_to_book is not None and price_to_book > 2.5:
-            sugestoes.append(f"⚠️ P/VPA elevado ({price_to_book:.2f}), atenção ao valuation.")
-        if ev_ebitda is not None and ev_ebitda > 15:
-            sugestoes.append(f"⚠️ EV/EBITDA elevado ({ev_ebitda:.2f}). Pode indicar empresa cara.")
+        # ROE
+        if roe is not None:
+            peso = perfil_pesos['roe']
+            max_score += peso
+            if roe > 0.20:
+                sugestoes.append(f"📈 ROE muito forte ({roe*100:.1f}%).")
+                score += peso
+            elif roe > 0.15:
+                sugestoes.append(f"✅ ROE forte ({roe*100:.1f}%).")
+                score += peso/2
 
-    # Ajustar score para a escala 0-10 (simplificado)
-    # Definir limites mínimos e máximos razoáveis para o score bruto
-    # Recalcular min_raw_score e max_raw_score com base nas novas métricas
-    min_raw_score_novo = -12 # Estimativa ajustada
-    max_raw_score_novo = 17 # Estimativa ajustada
-    # Mapear o score bruto para a escala 0-10
-    score_final = max(0, min(10, round((score - min_raw_score_novo) / (max_raw_score_novo - min_raw_score_novo) * 10)))
+    # Análise para perfil Neutro
+    if 'neutro' in perfil.lower():
+        # ROE
+        if roe is not None:
+            peso = perfil_pesos['roe']
+            max_score += peso
+            if roe > 0.12:
+                sugestoes.append(f"✅ ROE bom ({roe*100:.1f}%).")
+                score += peso
+            elif roe > 0.08:
+                sugestoes.append(f"ℹ️ ROE moderado ({roe*100:.1f}%).")
+                score += peso/2
 
+        # P/L
+        if pl is not None:
+            peso = perfil_pesos['pl']
+            max_score += peso
+            if 10 <= pl <= 20:
+                sugestoes.append(f"✅ P/L adequado ({pl:.1f}).")
+                score += peso
+            elif 5 <= pl < 10 or 20 < pl <= 25:
+                sugestoes.append(f"ℹ️ P/L moderado ({pl:.1f}).")
+                score += peso/2
+            else:
+                sugestoes.append(f"⚠️ P/L fora da faixa ideal ({pl:.1f}).")
+                score -= peso
+
+    # Análise de Margens (comum a todos os perfis)
+    if ebitda_margins is not None:
+        peso = perfil_pesos.get('margem_ebitda', 1)
+        max_score += peso
+        if ebitda_margins > 0.20:
+            sugestoes.append(f"📈 Margem EBITDA forte ({ebitda_margins*100:.1f}%).")
+            score += peso
+        elif ebitda_margins > 0.15:
+            sugestoes.append(f"✅ Margem EBITDA boa ({ebitda_margins*100:.1f}%).")
+            score += peso/2
+        else:
+            sugestoes.append(f"ℹ️ Margem EBITDA moderada ({ebitda_margins*100:.1f}%).")
+            score += peso/3
+
+    # Calcular score final (0-10)
+    if max_score > 0:
+        score_final = max(0, min(10, round((score / max_score) * 10)))
+    else:
+        score_final = 0
+
+    # Exibir resultados
     st.markdown("--- ")
-    st.subheader("Sumário e Score Fundamental (Simplificado)")
+    st.subheader("Sumário e Score Fundamental")
     st.write(f"**Perfil Selecionado:** {perfil}")
     st.write(f"**Score Fundamental (0-10):** **{score_final}/10**")
+    
     if score_final >= 8:
         st.success("⭐ Análise Fundamentalista Forte para o perfil.")
     elif score_final >= 5:
@@ -784,6 +898,13 @@ def analise_sugestiva(info, perfil):
             st.warning(s)
         else:
             st.info(s)
+
+    # Adicionar nota sobre limitações
+    st.info("""
+    **Nota:** Esta análise é baseada em dados disponíveis no Yahoo Finance e pode não refletir 
+    todas as nuances do ativo. Recomenda-se complementar com outras fontes de informação e 
+    análise fundamentalista mais detalhada.
+    """)
 
 def buscar_acoes_tradingview():
     """
@@ -1003,97 +1124,6 @@ def calcular_preco_teto_barsi(historico, info, taxa_desejada=0.06):
         # st.error(f"Erro no cálculo do Preço Teto: {e}") # Remover em produção
         return None
 
-def analise_especifica_fii(codigo):
-    """
-    Realiza análise específica para FIIs, buscando métricas importantes
-    """
-    st.subheader("🏢 Análise Específica de FII")
-    
-    try:
-        # Tentar obter dados do FII
-        fii = yf.Ticker(codigo)
-        info = fii.info
-        
-        # Verificar se é realmente um FII
-        if not info.get('quoteType') == 'ETF' or not codigo.endswith('11'):
-            st.warning("⚠️ Este ativo não parece ser um FII. Algumas métricas podem não ser aplicáveis.")
-            return
-        
-        # Criar colunas para organizar as informações
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("### 📊 Métricas de Distribuição")
-            # Dividend Yield (já disponível no Yahoo Finance)
-            dy = info.get('dividendYield', 0) * 100 if info.get('dividendYield') is not None else None
-            if dy is not None:
-                st.write(f"**Dividend Yield:** {dy:.2f}%")
-            
-            # Payout (já disponível no Yahoo Finance)
-            payout = info.get('payoutRatio', 0) * 100 if info.get('payoutRatio') is not None else None
-            if payout is not None:
-                st.write(f"**Payout:** {payout:.2f}%")
-            
-            # Valor Patrimonial por Cota (VPC)
-            vpc = info.get('bookValue')
-            if vpc is not None:
-                st.write(f"**Valor Patrimonial por Cota (VPC):** R$ {vpc:.2f}")
-            
-            # P/VPC (Preço/Valor Patrimonial por Cota)
-            p_vpc = info.get('priceToBook')
-            if p_vpc is not None:
-                st.write(f"**P/VPC:** {p_vpc:.2f}")
-        
-        with col2:
-            st.markdown("### 📈 Métricas de Gestão")
-            # Patrimônio Líquido
-            pl = info.get('totalAssets')
-            if pl is not None:
-                st.write(f"**Patrimônio Líquido:** R$ {pl:,.2f}")
-            
-            # Número de Cotistas (se disponível)
-            cotistas = info.get('sharesOutstanding')
-            if cotistas is not None:
-                st.write(f"**Número de Cotas:** {cotistas:,.0f}")
-            
-            # Taxa de Administração (se disponível)
-            taxa_admin = info.get('annualReportExpenseRatio', 0) * 100 if info.get('annualReportExpenseRatio') is not None else None
-            if taxa_admin is not None:
-                st.write(f"**Taxa de Administração:** {taxa_admin:.2f}%")
-        
-        # Adicionar alertas e recomendações específicas para FIIs
-        st.markdown("### ⚠️ Alertas e Recomendações")
-        
-        # Verificar Dividend Yield
-        if dy is not None:
-            if dy < 6:
-                st.warning("⚠️ Dividend Yield abaixo de 6%. Verifique se o FII está distribuindo adequadamente.")
-            elif dy > 12:
-                st.warning("⚠️ Dividend Yield muito alto (>12%). Verifique a sustentabilidade da distribuição.")
-        
-        # Verificar P/VPC
-        if p_vpc is not None:
-            if p_vpc > 1.2:
-                st.warning("⚠️ P/VPC acima de 1.2. O FII pode estar negociando com ágio significativo.")
-            elif p_vpc < 0.8:
-                st.info("ℹ️ P/VPC abaixo de 0.8. O FII pode estar negociando com deságio.")
-        
-        # Verificar Taxa de Administração
-        if taxa_admin is not None:
-            if taxa_admin > 1.5:
-                st.warning("⚠️ Taxa de administração elevada (>1.5%). Pode impactar significativamente os retornos.")
-        
-        # Adicionar nota sobre limitações
-        st.info("""
-        **Nota:** Algumas métricas importantes para FIIs como Vacância Física/Financeira, 
-        Prazo Médio dos Contratos e Número de Cotistas podem não estar disponíveis no Yahoo Finance. 
-        Recomenda-se consultar o site do FII ou a CVM para informações mais detalhadas.
-        """)
-        
-    except Exception as e:
-        st.error(f"❌ Erro ao analisar FII: {str(e)}")
-        st.info("💡 Algumas métricas podem não estar disponíveis para este FII.")
-
 # App Streamlit
 st.title("📈 Avaliador de Ações e FIIs")
 
@@ -1162,14 +1192,13 @@ if st.button("🔍 Analisar"):
             info, historico = obter_dados(codigo)
             
             # Criar abas para organizar as informações
-            tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
                 "📊 Dados Fundamentais",
                 "📈 Gráfico e Análise Temporal",
                 "🌐 Análise Setorial",
                 "📌 Recomendações",
                 "💰 Valuation Avançado",
-                "📜 Demonstrações Financeiras Históricas",
-                "🏢 Análise FII"
+                "📜 Demonstrações Financeiras Históricas"
             ])
             
             with tab1:
@@ -1285,9 +1314,6 @@ if st.button("🔍 Analisar"):
                 except Exception as e:
                     st.warning(f"Não foi possível obter ou exibir as demonstrações financeiras: {str(e)}")
                     st.info("Verifique se o ativo é uma ação (FIIs geralmente não têm demonstrações detalhadas no yfinance) ou se os dados estão disponíveis para este período.")
-                
-            with tab7:
-                analise_especifica_fii(codigo)
                 
     except Exception as e:
         st.error(f"❌ Erro ao buscar dados: {str(e)}")
