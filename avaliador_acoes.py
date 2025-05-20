@@ -165,31 +165,6 @@ perfil = st.selectbox(
     ]
 )
 
-# ====== NOVO: Análise Técnica ======
-def analise_tecnica(historico):
-    st.subheader("📉 Análise Técnica Básica")
-    historico = historico.copy()
-    historico['MM21'] = historico['Close'].rolling(window=21).mean()
-    historico['MM50'] = historico['Close'].rolling(window=50).mean()
-    # IFR (RSI)
-    delta = historico['Close'].diff()
-    up = delta.clip(lower=0)
-    down = -1 * delta.clip(upper=0)
-    roll_up = up.rolling(14).mean()
-    roll_down = down.rolling(14).mean()
-    rs = roll_up / roll_down
-    historico['RSI'] = 100.0 - (100.0 / (1.0 + rs))
-    fig, ax = plt.subplots(figsize=(12, 6))
-    historico['Close'].plot(ax=ax, color='#2196F3', linewidth=2, label='Preço')
-    historico['MM21'].plot(ax=ax, color='orange', linestyle='--', label='Média Móvel 21')
-    historico['MM50'].plot(ax=ax, color='green', linestyle='--', label='Média Móvel 50')
-    ax.set_ylabel("Preço de Fechamento (R$)")
-    ax.set_xlabel("Data")
-    ax.grid(True, linestyle='--', alpha=0.7)
-    plt.xticks(rotation=45)
-    ax.legend()
-    st.pyplot(fig)
-
 # ====== NOVO: Análise Setorial ======
 def analise_setorial(info):
     st.subheader("🌐 Análise Setorial e Macroeconômica")
@@ -309,7 +284,6 @@ if st.button("Analisar"):
         mostrar_dados_fundamentais(info)
         mostrar_grafico(historico)
         analise_temporal(historico)
-        analise_tecnica(historico)
         analise_setorial(info)
         analise_sugestiva(info)
     except Exception as e:
