@@ -1,4 +1,4 @@
-# Requisitos: Instale com 'pip install yfinance streamlit pandas matplotlib requests beautifulsoup4 selenium webdriver_manager'
+# Requisitos: Instale com 'pip install yfinance streamlit pandas matplotlib requests beautifulsoup4'
 
 import yfinance as yf
 import pandas as pd
@@ -10,14 +10,20 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import io
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-import time
+
+# Tentar importar o Selenium, se não estiver disponível, usar alternativa
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from webdriver_manager.chrome import ChromeDriverManager
+    import time
+    SELENIUM_AVAILABLE = True
+except ImportError:
+    SELENIUM_AVAILABLE = False
 
 # Configuração da página
 st.set_page_config(
@@ -386,8 +392,13 @@ def analise_sugestiva(info, perfil):
 
 def buscar_acoes_tradingview():
     """
-    Busca todas as ações listadas no TradingView Screener usando Selenium
+    Busca todas as ações listadas no TradingView Screener
     """
+    if not SELENIUM_AVAILABLE:
+        st.error("❌ O módulo Selenium não está disponível. Por favor, instale-o usando: pip install selenium webdriver_manager")
+        st.info("💡 Alternativa: Use a lista predefinida de ações ou adicione manualmente os códigos desejados.")
+        return []
+        
     try:
         st.info("🔄 Iniciando busca de ações no TradingView...")
         
@@ -440,6 +451,7 @@ def buscar_acoes_tradingview():
             
     except Exception as e:
         st.error(f"❌ Erro ao buscar ações no TradingView: {str(e)}")
+        st.info("💡 Alternativa: Use a lista predefinida de ações ou adicione manualmente os códigos desejados.")
         return []
 
 def buscar_acoes_brasileiras():
@@ -560,8 +572,12 @@ with st.sidebar:
 
     # Adicionar botão para buscar ações do TradingView
     if st.button("🔄 Atualizar Lista de Ações"):
-        with st.spinner('Buscando ações no TradingView...'):
-            acoes = buscar_acoes_tradingview()
+        with st.spinner('Buscando ações...'):
+            if SELENIUM_AVAILABLE:
+                acoes = buscar_acoes_tradingview()
+            else:
+                acoes = buscar_acoes_brasileiras()
+                
             if acoes:
                 st.success(f"✅ {len(acoes)} ações encontradas!")
             else:
