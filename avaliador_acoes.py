@@ -261,90 +261,126 @@ def mostrar_indicadores_historicos(acao):
     st.subheader("📊 Evolução dos Indicadores")
     
     try:
-        # Obter dados históricos dos indicadores
-        # Usar um período maior para ter mais dados históricos
-        historico_indicadores = acao.history(period="5y")
+        # Obter dados históricos dos indicadores com tratamento de erro
+        try:
+            historico_indicadores = acao.history(period="5y")
+            if historico_indicadores.empty:
+                st.warning("⚠️ Não foi possível obter dados históricos para este período.")
+                return
+        except Exception as e:
+            st.warning(f"⚠️ Erro ao obter histórico: {str(e)}")
+            return
         
         # Criar colunas para os gráficos
         col1, col2 = st.columns(2)
         
         with col1:
             # Gráfico de P/L Histórico
-            if 'trailingPE' in acao.info:
-                st.markdown("### P/L Histórico")
-                fig, ax = plt.subplots(figsize=(10, 4))
-                # Calcular P/L histórico usando preço e lucro por ação
-                if 'earningsPerShare' in acao.info and acao.info['earningsPerShare'] > 0:
-                    pl_historico = historico_indicadores['Close'] / acao.info['earningsPerShare']
-                    pl_historico.plot(ax=ax, color='#4CAF50', linewidth=2)
-                    ax.set_ylabel("P/L")
-                    ax.grid(True, linestyle='--', alpha=0.7)
-                    st.pyplot(fig)
+            try:
+                if 'trailingPE' in acao.info and acao.info['trailingPE'] is not None:
+                    st.markdown("### P/L Histórico")
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    # Calcular P/L histórico usando preço e lucro por ação
+                    if 'earningsPerShare' in acao.info and acao.info['earningsPerShare'] is not None and acao.info['earningsPerShare'] > 0:
+                        pl_historico = historico_indicadores['Close'] / acao.info['earningsPerShare']
+                        pl_historico.plot(ax=ax, color='#4CAF50', linewidth=2)
+                        ax.set_ylabel("P/L")
+                        ax.grid(True, linestyle='--', alpha=0.7)
+                        st.pyplot(fig)
+                    else:
+                        st.info("ℹ️ Dados de LPA não disponíveis para cálculo do P/L histórico.")
+            except Exception as e:
+                st.info("ℹ️ Não foi possível gerar o gráfico de P/L histórico.")
             
             # Gráfico de Dividend Yield Histórico
-            if not historico_indicadores['Dividends'].empty:
-                st.markdown("### Dividend Yield Histórico")
-                fig, ax = plt.subplots(figsize=(10, 4))
-                # Calcular DY histórico
-                dy_historico = (historico_indicadores['Dividends'] / historico_indicadores['Close']) * 100
-                dy_historico.plot(ax=ax, color='#FF9800', linewidth=2)
-                ax.set_ylabel("Dividend Yield (%)")
-                ax.grid(True, linestyle='--', alpha=0.7)
-                st.pyplot(fig)
+            try:
+                if not historico_indicadores['Dividends'].empty:
+                    st.markdown("### Dividend Yield Histórico")
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    # Calcular DY histórico
+                    dy_historico = (historico_indicadores['Dividends'] / historico_indicadores['Close']) * 100
+                    dy_historico.plot(ax=ax, color='#FF9800', linewidth=2)
+                    ax.set_ylabel("Dividend Yield (%)")
+                    ax.grid(True, linestyle='--', alpha=0.7)
+                    st.pyplot(fig)
+                else:
+                    st.info("ℹ️ Dados de dividendos não disponíveis para este período.")
+            except Exception as e:
+                st.info("ℹ️ Não foi possível gerar o gráfico de Dividend Yield histórico.")
         
         with col2:
             # Gráfico de ROE Histórico
-            if 'returnOnEquity' in acao.info:
-                st.markdown("### ROE Histórico")
-                fig, ax = plt.subplots(figsize=(10, 4))
-                # Usar ROE atual como referência
-                roe_atual = acao.info['returnOnEquity'] * 100
-                ax.axhline(y=roe_atual, color='#9C27B0', linestyle='-', label=f'ROE Atual: {roe_atual:.2f}%')
-                ax.set_ylabel("ROE (%)")
-                ax.grid(True, linestyle='--', alpha=0.7)
-                ax.legend()
-                st.pyplot(fig)
+            try:
+                if 'returnOnEquity' in acao.info and acao.info['returnOnEquity'] is not None:
+                    st.markdown("### ROE Histórico")
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    # Usar ROE atual como referência
+                    roe_atual = acao.info['returnOnEquity'] * 100
+                    ax.axhline(y=roe_atual, color='#9C27B0', linestyle='-', label=f'ROE Atual: {roe_atual:.2f}%')
+                    ax.set_ylabel("ROE (%)")
+                    ax.grid(True, linestyle='--', alpha=0.7)
+                    ax.legend()
+                    st.pyplot(fig)
+                else:
+                    st.info("ℹ️ Dados de ROE não disponíveis.")
+            except Exception as e:
+                st.info("ℹ️ Não foi possível gerar o gráfico de ROE histórico.")
             
             # Gráfico de Margem EBITDA Histórica
-            if 'ebitdaMargins' in acao.info:
-                st.markdown("### Margem EBITDA Histórica")
-                fig, ax = plt.subplots(figsize=(10, 4))
-                # Usar margem EBITDA atual como referência
-                margem_atual = acao.info['ebitdaMargins'] * 100
-                ax.axhline(y=margem_atual, color='#E91E63', linestyle='-', label=f'Margem Atual: {margem_atual:.2f}%')
-                ax.set_ylabel("Margem EBITDA (%)")
-                ax.grid(True, linestyle='--', alpha=0.7)
-                ax.legend()
-                st.pyplot(fig)
+            try:
+                if 'ebitdaMargins' in acao.info and acao.info['ebitdaMargins'] is not None:
+                    st.markdown("### Margem EBITDA Histórica")
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    # Usar margem EBITDA atual como referência
+                    margem_atual = acao.info['ebitdaMargins'] * 100
+                    ax.axhline(y=margem_atual, color='#E91E63', linestyle='-', label=f'Margem Atual: {margem_atual:.2f}%')
+                    ax.set_ylabel("Margem EBITDA (%)")
+                    ax.grid(True, linestyle='--', alpha=0.7)
+                    ax.legend()
+                    st.pyplot(fig)
+                else:
+                    st.info("ℹ️ Dados de Margem EBITDA não disponíveis.")
+            except Exception as e:
+                st.info("ℹ️ Não foi possível gerar o gráfico de Margem EBITDA histórica.")
         
         # Adicionar mais indicadores em uma nova linha
         col3, col4 = st.columns(2)
         
         with col3:
             # Gráfico de Dívida/PL Histórico
-            if 'debtToEquity' in acao.info:
-                st.markdown("### Dívida/PL Histórico")
-                fig, ax = plt.subplots(figsize=(10, 4))
-                # Usar Dívida/PL atual como referência
-                debt_equity_atual = acao.info['debtToEquity']
-                ax.axhline(y=debt_equity_atual, color='#F44336', linestyle='-', label=f'Dívida/PL Atual: {debt_equity_atual:.2f}')
-                ax.set_ylabel("Dívida/PL")
-                ax.grid(True, linestyle='--', alpha=0.7)
-                ax.legend()
-                st.pyplot(fig)
+            try:
+                if 'debtToEquity' in acao.info and acao.info['debtToEquity'] is not None:
+                    st.markdown("### Dívida/PL Histórico")
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    # Usar Dívida/PL atual como referência
+                    debt_equity_atual = acao.info['debtToEquity']
+                    ax.axhline(y=debt_equity_atual, color='#F44336', linestyle='-', label=f'Dívida/PL Atual: {debt_equity_atual:.2f}')
+                    ax.set_ylabel("Dívida/PL")
+                    ax.grid(True, linestyle='--', alpha=0.7)
+                    ax.legend()
+                    st.pyplot(fig)
+                else:
+                    st.info("ℹ️ Dados de Dívida/PL não disponíveis.")
+            except Exception as e:
+                st.info("ℹ️ Não foi possível gerar o gráfico de Dívida/PL histórico.")
         
         with col4:
             # Gráfico de P/VPA Histórico
-            if 'priceToBook' in acao.info:
-                st.markdown("### P/VPA Histórico")
-                fig, ax = plt.subplots(figsize=(10, 4))
-                # Calcular P/VPA histórico usando preço e VPA
-                if 'bookValue' in acao.info and acao.info['bookValue'] > 0:
-                    pvpa_historico = historico_indicadores['Close'] / acao.info['bookValue']
-                    pvpa_historico.plot(ax=ax, color='#3F51B5', linewidth=2)
-                    ax.set_ylabel("P/VPA")
-                    ax.grid(True, linestyle='--', alpha=0.7)
-                    st.pyplot(fig)
+            try:
+                if 'priceToBook' in acao.info and acao.info['priceToBook'] is not None:
+                    st.markdown("### P/VPA Histórico")
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    # Calcular P/VPA histórico usando preço e VPA
+                    if 'bookValue' in acao.info and acao.info['bookValue'] is not None and acao.info['bookValue'] > 0:
+                        pvpa_historico = historico_indicadores['Close'] / acao.info['bookValue']
+                        pvpa_historico.plot(ax=ax, color='#3F51B5', linewidth=2)
+                        ax.set_ylabel("P/VPA")
+                        ax.grid(True, linestyle='--', alpha=0.7)
+                        st.pyplot(fig)
+                    else:
+                        st.info("ℹ️ Dados de VPA não disponíveis para cálculo do P/VPA histórico.")
+            except Exception as e:
+                st.info("ℹ️ Não foi possível gerar o gráfico de P/VPA histórico.")
         
         # Adicionar nota explicativa
         st.info("""
@@ -354,8 +390,14 @@ def mostrar_indicadores_historicos(acao):
         """)
         
     except Exception as e:
-        st.warning(f"Não foi possível gerar os gráficos de indicadores históricos: {str(e)}")
-        st.info("Alguns indicadores podem não estar disponíveis para este ativo ou período.")
+        st.warning(f"⚠️ Erro ao gerar os gráficos de indicadores históricos: {str(e)}")
+        st.info("""
+        💡 Dicas:
+        1. Verifique se o ativo está listado corretamente
+        2. Alguns indicadores podem não estar disponíveis para este ativo
+        3. Tente novamente em alguns minutos
+        4. Para FIIs, alguns indicadores podem não ser aplicáveis
+        """)
 
 def analise_temporal(historico):
     st.subheader("⏱️ Análise Temporal")
