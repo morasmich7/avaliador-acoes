@@ -115,11 +115,16 @@ def mostrar_dados_fundamentais(info):
     st.write(f"**Preço atual:** R$ {info.get('previousClose', 'N/A'):.2f}")
     st.write(f"**P/L:** {info.get('trailingPE', 'N/A')}")
     st.write(f"**P/VPA:** {info.get('priceToBook', 'N/A')}")
-    st.write(f"**Dividend Yield:** {round(info.get('dividendYield', 0) * 100, 2)}%")
+    st.write(f"**Dividend Yield:** {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}%")
     st.write(f"**EV/EBITDA:** {info.get('enterpriseToEbitda', 'N/A')}")
     st.write(f"**Dívida Líquida/EBITDA:** {info.get('debtToEbitda', 'N/A')}")
-    st.write(f"**ROE:** {round(info.get('returnOnEquity', 0) * 100, 2)}%")
-    st.write(f"**Dívida/Patrimônio (Debt/Equity):** {info.get('debtToEquity', 'N/A')}")
+    st.write(f"**ROE:** {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}%")
+    st.write(f"**Margem Bruta:** {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}%")
+    st.write(f"**Margem Líquida:** {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}%")
+    st.write(f"**Payout Ratio (Distribuição de Dividendos):** {round(info.get('payoutRatio', 0) * 100, 2) if info.get('payoutRatio') is not None else 'N/A'}%")
+    st.write(f"**Liquidez Corrente:** {info.get('currentRatio', 'N/A')}")
+    st.write(f"**Caixa Total:** R$ {info.get('totalCash', 'N/A'):,.2f}")
+    st.write(f"**Dívida Total:** R$ {info.get('totalDebt', 'N/A'):,.2f}")
     st.write(f"**Lucro por ação (EPS):** {info.get('trailingEps', 'N/A')}")
 
 def mostrar_grafico(historico):
@@ -185,7 +190,7 @@ def analise_setorial(info):
     st.info(explicacao.get(setor, 'Setor não identificado.'))
 
 # ====== MELHORIA: Recomendações personalizadas ======
-def analise_sugestiva(info):
+def analise_sugestiva(info, perfil):
     st.subheader("📌 Recomendações por Horizonte de Investimento e Perfil")
     pl = info.get('trailingPE')
     dy = info.get('dividendYield')
@@ -193,37 +198,56 @@ def analise_sugestiva(info):
     debt_equity = info.get('debtToEquity')
     price_to_book = info.get('priceToBook')
     ev_ebitda = info.get('enterpriseToEbitda')
+    debt_ebitda = info.get('debtToEbitda')
+    current_ratio = info.get('currentRatio')
     sugestoes = []
     # Perfil de crescimento
     if 'crescimento' in perfil.lower() or 'longo' in perfil.lower():
-        if roe and roe > 0.15:
+        if roe is not None and roe > 0.15:
             sugestoes.append("📈 ROE forte para crescimento a longo prazo.")
-        if pl and pl < 15:
+        if pl is not None and pl < 15:
             sugestoes.append("P/L razoável para crescimento.")
     # Perfil de dividendos
     if 'dividendos' in perfil.lower():
-        if dy and dy > 0.05:
+        if dy is not None and dy > 0.05:
             sugestoes.append("💰 Bom Dividend Yield para renda passiva.")
+        elif dy is not None:
+            sugestoes.append("Dividend Yield moderado para foco em dividendos.")
         else:
-            sugestoes.append("Dividend Yield baixo para foco em dividendos.")
-    # Perfil de risco
-    if 'baixa' in perfil.lower():
-        if debt_equity and debt_equity < 1:
-            sugestoes.append("💪 Baixa alavancagem financeira (baixo risco)")
-        else:
-            sugestoes.append("⚠️ Alavancagem financeira elevada para perfil conservador.")
+             sugestoes.append("Dividend Yield não disponível ou muito baixo.")
+    # Perfil de risco e saúde financeira
+    if 'baixa' in perfil.lower() or 'neutro' in perfil.lower():
+        if debt_equity is not None and debt_equity < 1:
+            sugestoes.append("💪 Baixa alavancagem financeira (baixo risco). Indicadores: Dívida/Patrimônio OK.")
+        elif debt_equity is not None:
+             sugestoes.append(f"⚠️ Alavancagem financeira elevada para perfil conservador: Dívida/Patrimônio ({debt_equity:.2f}).")
+        if debt_ebitda is not None and debt_ebitda < 2:
+             sugestoes.append("💪 Baixa dívida líquida em relação ao lucro operacional (EBITDA). Indicadores: Dívida Líquida/EBITDA OK.")
+        elif debt_ebitda is not None:
+             sugestoes.append(f"⚠️ Dívida líquida/EBITDA elevada: ({debt_ebitda:.2f}). Atenção ao endividamento.")
+        if current_ratio is not None and current_ratio > 1.5:
+             sugestoes.append("💪 Boa liquidez corrente (capacidade de pagar dívidas de curto prazo). Indicadores: Liquidez Corrente OK.")
+        elif current_ratio is not None:
+             sugestoes.append(f"⚠️ Liquidez corrente baixa ({current_ratio:.2f}). Atenção à capacidade de pagamento no curto prazo.")
+
     if 'alta' in perfil.lower():
-        if debt_equity and debt_equity > 2:
-            sugestoes.append("⚠️ Alavancagem alta, atenção ao risco!")
-    # Recomendações gerais
-    if pl and pl > 20:
-        sugestoes.append("⚠️ P/L elevado, ação pode estar cara.")
-    if price_to_book and price_to_book > 2:
-        sugestoes.append("⚠️ P/VPA elevado, atenção ao valuation.")
-    if ev_ebitda and ev_ebitda > 12:
-        sugestoes.append("⚠️ EV/EBITDA elevado para o setor.")
+        if debt_equity is not None and debt_equity > 2:
+            sugestoes.append(f"⚠️ Alavancagem alta ({debt_equity:.2f}). Atenção ao risco!")
+
+    # Recomendações gerais de valuation
+    if pl is not None and pl > 20:
+        sugestoes.append(f"⚠️ P/L elevado ({pl:.2f}), ação pode estar cara.")
+    if price_to_book is not None and price_to_book > 2:
+        sugestoes.append(f"⚠️ P/VPA elevado ({price_to_book:.2f}), atenção ao valuation.")
+    if ev_ebitda is not None and ev_ebitda > 12:
+        sugestoes.append(f"⚠️ EV/EBITDA elevado ({ev_ebitda:.2f}) para o setor.")
+
+    # Recomendações de rentabilidade/eficiência
+    if roe is not None and roe < 0.05:
+         sugestoes.append(f"⚠️ ROE baixo ({roe*100:.2f}%). A empresa pode ter baixa rentabilidade sobre o patrimônio.")
+
     if not sugestoes:
-        sugestoes.append("Sem alertas relevantes para o perfil selecionado.")
+        sugestoes.append("Sem alertas relevantes para o perfil selecionado e indicadores disponíveis.")
     for s in sugestoes:
         st.write(s)
 
@@ -285,6 +309,6 @@ if st.button("Analisar"):
         mostrar_grafico(historico)
         analise_temporal(historico)
         analise_setorial(info)
-        analise_sugestiva(info)
+        analise_sugestiva(info, perfil)
     except Exception as e:
         st.error(f"Erro ao buscar dados: {e}")
