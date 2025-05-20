@@ -825,6 +825,97 @@ def calcular_preco_teto_barsi(historico, info, taxa_desejada=0.06):
         # st.error(f"Erro no cálculo do Preço Teto: {e}") # Remover em produção
         return None
 
+def analise_especifica_fii(codigo):
+    """
+    Realiza análise específica para FIIs, buscando métricas importantes
+    """
+    st.subheader("🏢 Análise Específica de FII")
+    
+    try:
+        # Tentar obter dados do FII
+        fii = yf.Ticker(codigo)
+        info = fii.info
+        
+        # Verificar se é realmente um FII
+        if not info.get('quoteType') == 'ETF' or not codigo.endswith('11'):
+            st.warning("⚠️ Este ativo não parece ser um FII. Algumas métricas podem não ser aplicáveis.")
+            return
+        
+        # Criar colunas para organizar as informações
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 📊 Métricas de Distribuição")
+            # Dividend Yield (já disponível no Yahoo Finance)
+            dy = info.get('dividendYield', 0) * 100 if info.get('dividendYield') is not None else None
+            if dy is not None:
+                st.write(f"**Dividend Yield:** {dy:.2f}%")
+            
+            # Payout (já disponível no Yahoo Finance)
+            payout = info.get('payoutRatio', 0) * 100 if info.get('payoutRatio') is not None else None
+            if payout is not None:
+                st.write(f"**Payout:** {payout:.2f}%")
+            
+            # Valor Patrimonial por Cota (VPC)
+            vpc = info.get('bookValue')
+            if vpc is not None:
+                st.write(f"**Valor Patrimonial por Cota (VPC):** R$ {vpc:.2f}")
+            
+            # P/VPC (Preço/Valor Patrimonial por Cota)
+            p_vpc = info.get('priceToBook')
+            if p_vpc is not None:
+                st.write(f"**P/VPC:** {p_vpc:.2f}")
+        
+        with col2:
+            st.markdown("### 📈 Métricas de Gestão")
+            # Patrimônio Líquido
+            pl = info.get('totalAssets')
+            if pl is not None:
+                st.write(f"**Patrimônio Líquido:** R$ {pl:,.2f}")
+            
+            # Número de Cotistas (se disponível)
+            cotistas = info.get('sharesOutstanding')
+            if cotistas is not None:
+                st.write(f"**Número de Cotas:** {cotistas:,.0f}")
+            
+            # Taxa de Administração (se disponível)
+            taxa_admin = info.get('annualReportExpenseRatio', 0) * 100 if info.get('annualReportExpenseRatio') is not None else None
+            if taxa_admin is not None:
+                st.write(f"**Taxa de Administração:** {taxa_admin:.2f}%")
+        
+        # Adicionar alertas e recomendações específicas para FIIs
+        st.markdown("### ⚠️ Alertas e Recomendações")
+        
+        # Verificar Dividend Yield
+        if dy is not None:
+            if dy < 6:
+                st.warning("⚠️ Dividend Yield abaixo de 6%. Verifique se o FII está distribuindo adequadamente.")
+            elif dy > 12:
+                st.warning("⚠️ Dividend Yield muito alto (>12%). Verifique a sustentabilidade da distribuição.")
+        
+        # Verificar P/VPC
+        if p_vpc is not None:
+            if p_vpc > 1.2:
+                st.warning("⚠️ P/VPC acima de 1.2. O FII pode estar negociando com ágio significativo.")
+            elif p_vpc < 0.8:
+                st.info("ℹ️ P/VPC abaixo de 0.8. O FII pode estar negociando com deságio.")
+        
+        # Verificar Taxa de Administração
+        if taxa_admin is not None:
+            if taxa_admin > 1.5:
+                st.warning("⚠️ Taxa de administração elevada (>1.5%). Pode impactar significativamente os retornos.")
+        
+        # Adicionar nota sobre limitações
+        st.info("""
+        **Nota:** Algumas métricas importantes para FIIs como Vacância Física/Financeira, 
+        Prazo Médio dos Contratos e Número de Cotistas podem não estar disponíveis no Yahoo Finance. 
+        Recomenda-se consultar o site do FII ou a CVM para informações mais detalhadas.
+        """)
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao analisar FII: {str(e)}")
+        st.info("💡 Algumas métricas podem não estar disponíveis para este FII.")
+
 # App Streamlit
 st.title("📈 Avaliador de Ações e FIIs")
 
@@ -893,13 +984,14 @@ if st.button("🔍 Analisar"):
             info, historico = obter_dados(codigo)
             
             # Criar abas para organizar as informações
-            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
                 "📊 Dados Fundamentais",
                 "📈 Gráfico e Análise Temporal",
                 "🌐 Análise Setorial",
                 "📌 Recomendações",
                 "💰 Valuation Avançado",
-                "📜 Demonstrações Financeiras Históricas"
+                "📜 Demonstrações Financeiras Históricas",
+                "🏢 Análise FII"
             ])
             
             with tab1:
@@ -1015,6 +1107,9 @@ if st.button("🔍 Analisar"):
                 except Exception as e:
                     st.warning(f"Não foi possível obter ou exibir as demonstrações financeiras: {str(e)}")
                     st.info("Verifique se o ativo é uma ação (FIIs geralmente não têm demonstrações detalhadas no yfinance) ou se os dados estão disponíveis para este período.")
+                
+            with tab7:
+                analise_especifica_fii(codigo)
                 
     except Exception as e:
         st.error(f"❌ Erro ao buscar dados: {str(e)}")
