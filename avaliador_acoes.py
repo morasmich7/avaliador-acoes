@@ -199,18 +199,38 @@ def analise_setorial_noticias(info, codigo_acao):
     st.info(explicacao.get(setor, 'Setor não identificado ou sem explicação detalhada disponível.'))
     st.markdown("---")
     st.subheader("📰 Notícias Recentes")
+    
     try:
-        ticker_obj = yf.Ticker(codigo_acao)
-        noticias = ticker_obj.news
-        if noticias:
-            for n in noticias[:5]: # Exibir as 5 notícias mais recentes
-                st.write(f"**{n['title']}**")
-                st.write(f"*Fonte: {n['publisher']} - {datetime.fromtimestamp(n['providerPublishTime']).strftime('%d/%m/%Y %H:%M')}*")
-                st.write(n['link'])
-        else:
-            st.info("Nenhuma notícia recente encontrada.")
+        with st.spinner('Buscando notícias recentes...'):
+            ticker_obj = yf.Ticker(codigo_acao)
+            noticias = ticker_obj.news
+            
+            if noticias:
+                for n in noticias[:5]:  # Exibir as 5 notícias mais recentes
+                    with st.container():
+                        st.markdown(f"### {n['title']}")
+                        
+                        # Formatar a data
+                        try:
+                            data = datetime.fromtimestamp(n['providerPublishTime'])
+                            data_formatada = data.strftime('%d/%m/%Y %H:%M')
+                        except:
+                            data_formatada = "Data não disponível"
+                        
+                        # Exibir fonte e data
+                        st.markdown(f"*Fonte: {n.get('publisher', 'Fonte não disponível')} - {data_formatada}*")
+                        
+                        # Exibir link clicável
+                        st.markdown(f"[Ler notícia completa]({n['link']})")
+                        
+                        # Adicionar uma linha separadora entre as notícias
+                        st.markdown("---")
+            else:
+                st.info("Nenhuma notícia recente encontrada para este ativo.")
+                
     except Exception as e:
-        st.warning(f"Não foi possível buscar notícias: {e}")
+        st.warning(f"Não foi possível buscar notícias: {str(e)}")
+        st.info("Dica: Alguns ativos podem não ter notícias disponíveis ou podem estar com acesso temporariamente indisponível.")
 
 # ====== MELHORIA: Recomendações personalizadas ======
 def analise_sugestiva(info, perfil):
