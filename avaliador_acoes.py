@@ -113,19 +113,19 @@ def mostrar_dados_fundamentais(info):
     st.write(f"**Empresa/FII:** {info.get('longName', 'N/A')}")
     st.write(f"**Setor:** {info.get('sector', 'N/A')}")
     st.write(f"**Preço atual:** R$ {info.get('previousClose', 'N/A'):.2f}")
-    st.write(f"**P/L:** {info.get('trailingPE', 'N/A')}")
-    st.write(f"**P/VPA:** {info.get('priceToBook', 'N/A')}")
-    st.write(f"**Dividend Yield:** {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}%")
-    st.write(f"**EV/EBITDA:** {info.get('enterpriseToEbitda', 'N/A')}")
-    st.write(f"**Dívida Líquida/EBITDA:** {info.get('debtToEbitda', 'N/A')}")
-    st.write(f"**ROE:** {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}%")
-    st.write(f"**Margem Bruta:** {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}%")
-    st.write(f"**Margem Líquida:** {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}%")
-    st.write(f"**Payout Ratio (Distribuição de Dividendos):** {round(info.get('payoutRatio', 0) * 100, 2) if info.get('payoutRatio') is not None else 'N/A'}%")
-    st.write(f"**Liquidez Corrente:** {info.get('currentRatio', 'N/A')}")
+    st.write(f"**P/L:** {info.get('trailingPE', 'N/A')} *<small>(Preço/Lucro - Quão cara está a ação em relação ao lucro)</small>*", unsafe_allow_html=True)
+    st.write(f"**P/VPA:** {info.get('priceToBook', 'N/A')} *<small>(Preço/Valor Patrimonial por Ação - Quão cara está a ação em relação ao seu valor contábil)</small>*", unsafe_allow_html=True)
+    st.write(f"**Dividend Yield:** {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}% *<small>(Rendimento em dividendos nos últimos 12 meses)</small>*", unsafe_allow_html=True)
+    st.write(f"**EV/EBITDA:** {info.get('enterpriseToEbitda', 'N/A')} *<small>(Valor da Empresa/EBITDA - Usado para comparar empresas, especialmente no mesmo setor)</small>*", unsafe_allow_html=True)
+    st.write(f"**Dívida Líquida/EBITDA:** {info.get('debtToEbitda', 'N/A')} *<small>(Capacidade de pagar a dívida com o lucro operacional)</small>*", unsafe_allow_html=True)
+    st.write(f"**ROE:** {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}% *<small>(Rentabilidade sobre o Patrimônio Líquido)</small>*", unsafe_allow_html=True)
+    st.write(f"**Margem Bruta:** {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}% *<small>(Lucro Bruto sobre a Receita Total)</small>*", unsafe_allow_html=True)
+    st.write(f"**Margem Líquida:** {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}% *<small>(Lucro Líquido sobre a Receita Total)</small>*", unsafe_allow_html=True)
+    st.write(f"**Payout Ratio (Distribuição de Dividendos):** {round(info.get('payoutRatio', 0) * 100, 2) if info.get('payoutRatio') is not None else 'N/A'}% *<small>(Percentual do lucro distribuído como dividendos)</small>*", unsafe_allow_html=True)
+    st.write(f"**Liquidez Corrente:** {info.get('currentRatio', 'N/A')} *<small>(Capacidade de pagar dívidas de curto prazo)</small>*", unsafe_allow_html=True)
     st.write(f"**Caixa Total:** R$ {info.get('totalCash', 'N/A'):,.2f}")
     st.write(f"**Dívida Total:** R$ {info.get('totalDebt', 'N/A'):,.2f}")
-    st.write(f"**Lucro por ação (EPS):** {info.get('trailingEps', 'N/A')}")
+    st.write(f"**Lucro por ação (EPS):** {info.get('trailingEps', 'N/A')} *<small>(Lucro por ação nos últimos 12 meses)</small>*", unsafe_allow_html=True)
 
 def mostrar_grafico(historico):
     st.subheader("Tendência de Preço - Último Ano")
@@ -216,56 +216,134 @@ def analise_sugestiva(info, perfil):
     ev_ebitda = info.get('enterpriseToEbitda')
     debt_ebitda = info.get('debtToEbitda')
     current_ratio = info.get('currentRatio')
+    payout_ratio = info.get('payoutRatio')
     sugestoes = []
-    # Perfil de crescimento
+    score = 0
+    max_score = 10
+
+    # Pontuação e sugestões baseadas no perfil
+
+    # Crescimento (busca valorização) / Longo prazo
     if 'crescimento' in perfil.lower() or 'longo' in perfil.lower():
-        if roe is not None and roe > 0.15:
-            sugestoes.append("📈 ROE forte para crescimento a longo prazo.")
-        if pl is not None and pl < 15:
-            sugestoes.append("P/L razoável para crescimento.")
-    # Perfil de dividendos
+        if roe is not None:
+            if roe > 0.15: # Bom ROE para crescimento
+                sugestoes.append("📈 ROE forte (Mais de 15%). Potencial de crescimento a longo prazo.")
+                score += 2
+            elif roe > 0.08:
+                 sugestoes.append("ℹ️ ROE moderado. Rentabilidade razoável sobre o patrimônio.")
+                 score += 1
+        if pl is not None:
+            if pl < 15: # P/L razoável para crescimento
+                sugestoes.append("✅ P/L razoável (Abaixo de 15). Indicativo de valorização.")
+                score += 2
+            elif pl < 25:
+                sugestoes.append("ℹ️ P/L moderado (Entre 15 e 25). Atenção ao valuation.")
+                score += 1
+            else:
+                sugestoes.append("⚠️ P/L elevado (Acima de 25). Ação pode estar cara para o perfil crescimento.")
+                score -= 1
+
+    # Dividendos (busca renda passiva)
     if 'dividendos' in perfil.lower():
-        if dy is not None and dy > 0.05:
-            sugestoes.append("💰 Bom Dividend Yield para renda passiva.")
-        elif dy is not None:
-            sugestoes.append("Dividend Yield moderado para foco em dividendos.")
+        if dy is not None:
+            if dy > 0.06: # Bom Dividend Yield
+                sugestoes.append("💰 Excelente Dividend Yield (Mais de 6%). Ótimo para renda passiva.")
+                score += 3
+            elif dy > 0.04:
+                sugestoes.append("✅ Bom Dividend Yield (Entre 4% e 6%). Boa opção para dividendos.")
+                score += 2
+            elif dy > 0.02:
+                 sugestoes.append("ℹ️ Dividend Yield moderado (Entre 2% e 4%).")
+                 score += 1
+            else:
+                sugestoes.append("⚠️ Dividend Yield baixo (Abaixo de 2%). Não ideal para foco em dividendos.")
+                score -= 1
         else:
-             sugestoes.append("Dividend Yield não disponível ou muito baixo.")
-    # Perfil de risco e saúde financeira
+             sugestoes.append("ℹ️ Dividend Yield não disponível ou muito baixo.")
+             score -= 1
+        if payout_ratio is not None and payout_ratio > 0.5 and payout_ratio < 1.1: # Payout saudável (distribui lucro)
+             sugestoes.append("✅ Payout Ratio saudável. Empresa distribui parte do lucro como dividendos.")
+             score += 1
+        elif payout_ratio is not None and payout_ratio >= 1.1:
+             sugestoes.append("⚠️ Payout Ratio acima de 100%. Empresa pode estar distribuindo mais do que lucra.")
+             score -= 1
+
+    # Risco e Saúde Financeira (Baixa tolerância / Neutro)
     if 'baixa' in perfil.lower() or 'neutro' in perfil.lower():
-        if debt_equity is not None and debt_equity < 1:
-            sugestoes.append("💪 Baixa alavancagem financeira (baixo risco). Indicadores: Dívida/Patrimônio OK.")
-        elif debt_equity is not None:
-             sugestoes.append(f"⚠️ Alavancagem financeira elevada para perfil conservador: Dívida/Patrimônio ({debt_equity:.2f}).")
-        if debt_ebitda is not None and debt_ebitda < 2:
-             sugestoes.append("💪 Baixa dívida líquida em relação ao lucro operacional (EBITDA). Indicadores: Dívida Líquida/EBITDA OK.")
-        elif debt_ebitda is not None:
-             sugestoes.append(f"⚠️ Dívida líquida/EBITDA elevada: ({debt_ebitda:.2f}). Atenção ao endividamento.")
-        if current_ratio is not None and current_ratio > 1.5:
-             sugestoes.append("💪 Boa liquidez corrente (capacidade de pagar dívidas de curto prazo). Indicadores: Liquidez Corrente OK.")
-        elif current_ratio is not None:
-             sugestoes.append(f"⚠️ Liquidez corrente baixa ({current_ratio:.2f}). Atenção à capacidade de pagamento no curto prazo.")
+        if debt_equity is not None:
+            if debt_equity < 0.8: # Baixa alavancagem
+                sugestoes.append("💪 Baixa alavancagem financeira (Dívida/Patrimônio abaixo de 0.8). Baixo risco financeiro.")
+                score += 2
+            elif debt_equity < 1.5:
+                sugestoes.append("✅ Alavancagem financeira moderada (Dívida/Patrimônio entre 0.8 e 1.5).")
+                score += 1
+            else:
+                sugestoes.append(f"⚠️ Alavancagem financeira elevada (Dívida/Patrimônio: {debt_equity:.2f}). Maior risco financeiro para perfil conservador.")
+                score -= 2
+        if debt_ebitda is not None:
+            if debt_ebitda < 2: # Baixa dívida em relação ao Ebitda
+                 sugestoes.append("💪 Dívida Líquida/EBITDA baixa (Abaixo de 2). Empresa gera caixa para pagar dívida.")
+                 score += 2
+            elif debt_ebitda < 3.5:
+                 sugestoes.append("✅ Dívida Líquida/EBITDA moderada (Entre 2 e 3.5).")
+                 score += 1
+            else:
+                 sugestoes.append(f"⚠️ Dívida Líquida/EBITDA elevada ({debt_ebitda:.2f}). Atenção ao endividamento.")
+                 score -= 2
+        if current_ratio is not None:
+            if current_ratio > 1.8: # Boa liquidez
+                 sugestoes.append("💪 Ótima liquidez corrente (Acima de 1.8). Forte capacidade de pagar dívidas de curto prazo.")
+                 score += 2
+            elif current_ratio > 1.2:
+                 sugestoes.append("✅ Boa liquidez corrente (Entre 1.2 e 1.8). Capacidade saudável de pagamento no curto prazo.")
+                 score += 1
+            else:
+                 sugestoes.append(f"⚠️ Liquidez corrente baixa ({current_ratio:.2f}). Atenção à capacidade de pagamento no curto prazo.")
+                 score -= 2
 
+    # Risco (Alta tolerância)
     if 'alta' in perfil.lower():
-        if debt_equity is not None and debt_equity > 2:
-            sugestoes.append(f"⚠️ Alavancagem alta ({debt_equity:.2f}). Atenção ao risco!")
+         if debt_equity is not None and debt_equity > 2.5: # Alta alavancagem pode ser tolerada, mas com alerta
+              sugestoes.append(f"ℹ️ Alavancagem alta ({debt_equity:.2f}). Perfil de maior risco pode considerar, mas com cautela.")
 
-    # Recomendações gerais de valuation
-    if pl is not None and pl > 20:
-        sugestoes.append(f"⚠️ P/L elevado ({pl:.2f}), ação pode estar cara.")
-    if price_to_book is not None and price_to_book > 2:
-        sugestoes.append(f"⚠️ P/VPA elevado ({price_to_book:.2f}), atenção ao valuation.")
-    if ev_ebitda is not None and ev_ebitda > 12:
-        sugestoes.append(f"⚠️ EV/EBITDA elevado ({ev_ebitda:.2f}) para o setor.")
+    # Recomendações gerais de Valuation (para todos, exceto se conflitar muito com perfil específico)
+    if 'neutro' in perfil.lower() or ('crescimento' not in perfil.lower() and 'dividendos' not in perfil.lower()):
+        if pl is not None and pl > 25:
+            sugestoes.append(f"⚠️ P/L elevado ({pl:.2f}), atenção ao valuation.")
+        if price_to_book is not None and price_to_book > 2.5:
+            sugestoes.append(f"⚠️ P/VPA elevado ({price_to_book:.2f}), atenção ao valuation.")
+        if ev_ebitda is not None and ev_ebitda > 15:
+            sugestoes.append(f"⚠️ EV/EBITDA elevado ({ev_ebitda:.2f}). Pode indicar empresa cara.")
 
-    # Recomendações de rentabilidade/eficiência
-    if roe is not None and roe < 0.05:
-         sugestoes.append(f"⚠️ ROE baixo ({roe*100:.2f}%). A empresa pode ter baixa rentabilidade sobre o patrimônio.")
+    # Ajustar score para a escala 0-10 (simplificado)
+    # Definir limites mínimos e máximos razoáveis para o score bruto
+    min_raw_score = -8 # Estimativa do menor score possível
+    max_raw_score = 10 # Estimativa do maior score possível
+    # Mapear o score bruto para a escala 0-10
+    score_final = max(0, min(10, round((score - min_raw_score) / (max_raw_score - min_raw_score) * 10)))
 
+    st.markdown("--- ")
+    st.subheader("Sumário e Score Fundamental (Simplificado)")
+    st.write(f"**Perfil Selecionado:** {perfil}")
+    st.write(f"**Score Fundamental (0-10):** **{score_final}/10**")
+    if score_final >= 8:
+        st.success("⭐ Análise Fundamentalista Forte para o perfil.")
+    elif score_final >= 5:
+        st.info("✅ Análise Fundamentalista Moderada para o perfil.")
+    else:
+        st.warning("⚠️ Análise Fundamentalista Apresenta Pontos de Atenção para o perfil.")
+
+    st.markdown("--- ")
+    st.subheader("Detalhamento das Sugestões:")
     if not sugestoes:
-        sugestoes.append("Sem alertas relevantes para o perfil selecionado e indicadores disponíveis.")
+        st.info("Sem alertas ou sugestões relevantes com base nos indicadores e perfil selecionado.")
     for s in sugestoes:
-        st.write(s)
+        if "📈" in s or "💰" in s or "💪" in s or "✅" in s:
+            st.success(s)
+        elif "⚠️" in s:
+            st.warning(s)
+        else:
+            st.info(s)
 
 # App Streamlit
 st.title("📈 Avaliador de Ações e FIIs - Fundamentalista e Técnico")
