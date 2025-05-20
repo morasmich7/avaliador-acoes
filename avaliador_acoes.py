@@ -4,12 +4,13 @@ import yfinance as yf
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date # Importar date
 import unicodedata
 import os
 import requests
 from bs4 import BeautifulSoup
 import io
+import math
 
 # Tentar importar o Selenium, se não estiver disponível, usar alternativa
 try:
@@ -198,6 +199,7 @@ def obter_dados(codigo):
     acao = yf.Ticker(codigo_formatado)
     info = acao.info
     historico = acao.history(period="1y")
+
     return info, historico
 
 def mostrar_dados_fundamentais(info):
@@ -227,12 +229,23 @@ def mostrar_dados_fundamentais(info):
             st.write(f"**Margem Bruta:** {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
             st.write(f"**Margem Líquida:** {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
         
+        st.markdown("### Mais Indicadores de Rentabilidade")
+        with st.container():
+            st.write(f"**Margem EBITDA:** {round(info.get('ebitdaMargins', 0) * 100, 2) if info.get('ebitdaMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
+            st.write(f"**Margem Operacional:** {round(info.get('operatingMargins', 0) * 100, 2) if info.get('operatingMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
+
         st.markdown("### Indicadores de Endividamento")
         with st.container(): # Usando container para agrupar
             st.write(f"**Dívida Líquida/EBITDA:** {info.get('debtToEbitda', 'N/A')}")
+            st.write(f"**Dívida/Patrimônio Líquido:** {info.get('debtToEquity', 'N/A')}") # Adicionando Dívida/PL
             st.write(f"**Liquidez Corrente:** {info.get('currentRatio', 'N/A')}")
             st.write(f"**Caixa Total:** R$ {info.get('totalCash', 'N/A'):,.2f}")
             st.write(f"**Dívida Total:** R$ {info.get('totalDebt', 'N/A'):,.2f}")
+
+        st.markdown("### Indicadores de Fluxo de Caixa")
+        with st.container():
+            st.write(f"**Fluxo de Caixa Operacional:** R$ {info.get('operatingCashflow', 'N/A'):,.2f}")
+            st.write(f"**Fluxo de Caixa Livre:** R$ {info.get('freeCashflow', 'N/A'):,.2f}")
 
 def mostrar_grafico(historico):
     st.subheader("📈 Tendência de Preço")
@@ -243,6 +256,106 @@ def mostrar_grafico(historico):
     ax.grid(True, linestyle='--', alpha=0.7)
     plt.xticks(rotation=45)
     st.pyplot(fig)
+
+def mostrar_indicadores_historicos(acao):
+    st.subheader("📊 Evolução dos Indicadores")
+    
+    try:
+        # Obter dados históricos dos indicadores
+        # Usar um período maior para ter mais dados históricos
+        historico_indicadores = acao.history(period="5y")
+        
+        # Criar colunas para os gráficos
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Gráfico de P/L Histórico
+            if 'trailingPE' in acao.info:
+                st.markdown("### P/L Histórico")
+                fig, ax = plt.subplots(figsize=(10, 4))
+                # Calcular P/L histórico usando preço e lucro por ação
+                if 'earningsPerShare' in acao.info and acao.info['earningsPerShare'] > 0:
+                    pl_historico = historico_indicadores['Close'] / acao.info['earningsPerShare']
+                    pl_historico.plot(ax=ax, color='#4CAF50', linewidth=2)
+                    ax.set_ylabel("P/L")
+                    ax.grid(True, linestyle='--', alpha=0.7)
+                    st.pyplot(fig)
+            
+            # Gráfico de Dividend Yield Histórico
+            if not historico_indicadores['Dividends'].empty:
+                st.markdown("### Dividend Yield Histórico")
+                fig, ax = plt.subplots(figsize=(10, 4))
+                # Calcular DY histórico
+                dy_historico = (historico_indicadores['Dividends'] / historico_indicadores['Close']) * 100
+                dy_historico.plot(ax=ax, color='#FF9800', linewidth=2)
+                ax.set_ylabel("Dividend Yield (%)")
+                ax.grid(True, linestyle='--', alpha=0.7)
+                st.pyplot(fig)
+        
+        with col2:
+            # Gráfico de ROE Histórico
+            if 'returnOnEquity' in acao.info:
+                st.markdown("### ROE Histórico")
+                fig, ax = plt.subplots(figsize=(10, 4))
+                # Usar ROE atual como referência
+                roe_atual = acao.info['returnOnEquity'] * 100
+                ax.axhline(y=roe_atual, color='#9C27B0', linestyle='-', label=f'ROE Atual: {roe_atual:.2f}%')
+                ax.set_ylabel("ROE (%)")
+                ax.grid(True, linestyle='--', alpha=0.7)
+                ax.legend()
+                st.pyplot(fig)
+            
+            # Gráfico de Margem EBITDA Histórica
+            if 'ebitdaMargins' in acao.info:
+                st.markdown("### Margem EBITDA Histórica")
+                fig, ax = plt.subplots(figsize=(10, 4))
+                # Usar margem EBITDA atual como referência
+                margem_atual = acao.info['ebitdaMargins'] * 100
+                ax.axhline(y=margem_atual, color='#E91E63', linestyle='-', label=f'Margem Atual: {margem_atual:.2f}%')
+                ax.set_ylabel("Margem EBITDA (%)")
+                ax.grid(True, linestyle='--', alpha=0.7)
+                ax.legend()
+                st.pyplot(fig)
+        
+        # Adicionar mais indicadores em uma nova linha
+        col3, col4 = st.columns(2)
+        
+        with col3:
+            # Gráfico de Dívida/PL Histórico
+            if 'debtToEquity' in acao.info:
+                st.markdown("### Dívida/PL Histórico")
+                fig, ax = plt.subplots(figsize=(10, 4))
+                # Usar Dívida/PL atual como referência
+                debt_equity_atual = acao.info['debtToEquity']
+                ax.axhline(y=debt_equity_atual, color='#F44336', linestyle='-', label=f'Dívida/PL Atual: {debt_equity_atual:.2f}')
+                ax.set_ylabel("Dívida/PL")
+                ax.grid(True, linestyle='--', alpha=0.7)
+                ax.legend()
+                st.pyplot(fig)
+        
+        with col4:
+            # Gráfico de P/VPA Histórico
+            if 'priceToBook' in acao.info:
+                st.markdown("### P/VPA Histórico")
+                fig, ax = plt.subplots(figsize=(10, 4))
+                # Calcular P/VPA histórico usando preço e VPA
+                if 'bookValue' in acao.info and acao.info['bookValue'] > 0:
+                    pvpa_historico = historico_indicadores['Close'] / acao.info['bookValue']
+                    pvpa_historico.plot(ax=ax, color='#3F51B5', linewidth=2)
+                    ax.set_ylabel("P/VPA")
+                    ax.grid(True, linestyle='--', alpha=0.7)
+                    st.pyplot(fig)
+        
+        # Adicionar nota explicativa
+        st.info("""
+        **Nota:** Alguns indicadores mostram apenas o valor atual como referência (linha horizontal) 
+        devido à limitação de dados históricos disponíveis no Yahoo Finance. 
+        Os gráficos de P/L, Dividend Yield e P/VPA mostram a evolução histórica quando os dados estão disponíveis.
+        """)
+        
+    except Exception as e:
+        st.warning(f"Não foi possível gerar os gráficos de indicadores históricos: {str(e)}")
+        st.info("Alguns indicadores podem não estar disponíveis para este ativo ou período.")
 
 def analise_temporal(historico):
     st.subheader("⏱️ Análise Temporal")
@@ -331,9 +444,17 @@ def analise_sugestiva(info, perfil):
     debt_ebitda = info.get('debtToEbitda')
     current_ratio = info.get('currentRatio')
     payout_ratio = info.get('payoutRatio')
+
+    # Novas métricas
+    ebitda_margins = info.get('ebitdaMargins')
+    operating_margins = info.get('operatingMargins')
+    operating_cashflow = info.get('operatingCashflow')
+    free_cashflow = info.get('freeCashflow')
+
     sugestoes = []
     score = 0
-    max_score = 10
+    # Ajustar max_score para acomodar novas métricas
+    max_score = 15 # Aumentado para refletir mais critérios
 
     # Pontuação e sugestões baseadas no perfil
 
@@ -356,6 +477,17 @@ def analise_sugestiva(info, perfil):
             else:
                 sugestoes.append("⚠️ P/L elevado (Acima de 25). Ação pode estar cara para o perfil crescimento.")
                 score -= 1
+        
+        # Adicionar critérios de crescimento baseados em margens e fluxo de caixa
+        if ebitda_margins is not None and ebitda_margins > 0.20: # Boa margem EBITDA
+            sugestoes.append("📈 Alta Margem EBITDA (Mais de 20%). Sinal de eficiência operacional.")
+            score += 1
+        if operating_margins is not None and operating_margins > 0.15: # Boa margem Operacional
+            sugestoes.append("📈 Alta Margem Operacional (Mais de 15%). Indicia boa gestão de custos.")
+            score += 1
+        if free_cashflow is not None and free_cashflow > 0: # Gerando Fluxo de Caixa Livre
+            sugestoes.append("💰 Gerando Fluxo de Caixa Livre positivo. Essencial para reinvestimento e crescimento.")
+            score += 1
 
     # Dividendos (busca renda passiva)
     if 'dividendos' in perfil.lower():
@@ -381,6 +513,10 @@ def analise_sugestiva(info, perfil):
         elif payout_ratio is not None and payout_ratio >= 1.1:
              sugestoes.append("⚠️ Payout Ratio acima de 100%. Empresa pode estar distribuindo mais do que lucra.")
              score -= 1
+        # Adicionar critério de fluxo de caixa para dividendos (gerar caixa para pagar proventos)
+        if operating_cashflow is not None and operating_cashflow > 0: # Gerando Fluxo de Caixa Operacional positivo
+             sugestoes.append("💰 Gerando Fluxo de Caixa Operacional positivo. Essencial para sustentar dividendos.")
+             score += 1
 
     # Risco e Saúde Financeira (Baixa tolerância / Neutro)
     if 'baixa' in perfil.lower() or 'neutro' in perfil.lower():
@@ -415,6 +551,17 @@ def analise_sugestiva(info, perfil):
                  sugestoes.append(f"⚠️ Liquidez corrente baixa ({current_ratio:.2f}). Atenção à capacidade de pagamento no curto prazo.")
                  score -= 2
 
+        # Adicionar critérios de saúde financeira baseados em margens e fluxo de caixa
+        if ebitda_margins is not None and ebitda_margins > 0.10: # Margem EBITDA razoável para saúde
+             sugestoes.append("✅ Margem EBITDA razoável. Boa capacidade de gerar caixa operacional antes de depreciação/amortização.")
+             score += 1
+        if operating_margins is not None and operating_margins > 0.08: # Margem Operacional razoável para saúde
+             sugestoes.append("✅ Margem Operacional razoável. Indicia controle sobre custos operacionais.")
+             score += 1
+        if operating_cashflow is not None and operating_cashflow > 0: # Gerando Fluxo de Caixa Operacional positivo
+             sugestoes.append("💪 Gerando Fluxo de Caixa Operacional positivo. Fundamental para a sustentabilidade.")
+             score += 1
+
     # Risco (Alta tolerância)
     if 'alta' in perfil.lower():
          if debt_equity is not None and debt_equity > 2.5: # Alta alavancagem pode ser tolerada, mas com alerta
@@ -431,10 +578,11 @@ def analise_sugestiva(info, perfil):
 
     # Ajustar score para a escala 0-10 (simplificado)
     # Definir limites mínimos e máximos razoáveis para o score bruto
-    min_raw_score = -8 # Estimativa do menor score possível
-    max_raw_score = 10 # Estimativa do maior score possível
+    # Recalcular min_raw_score e max_raw_score com base nas novas métricas
+    min_raw_score_novo = -12 # Estimativa ajustada
+    max_raw_score_novo = 17 # Estimativa ajustada
     # Mapear o score bruto para a escala 0-10
-    score_final = max(0, min(10, round((score - min_raw_score) / (max_raw_score - min_raw_score) * 10)))
+    score_final = max(0, min(10, round((score - min_raw_score_novo) / (max_raw_score_novo - min_raw_score_novo) * 10)))
 
     st.markdown("--- ")
     st.subheader("Sumário e Score Fundamental (Simplificado)")
@@ -598,6 +746,85 @@ def adicionar_acao_manual():
         else:
             st.warning("⚠️ Preencha todos os campos.")
 
+def calcular_preco_justo_graham(lpa, vpa):
+    """
+    Calcula o Preço Justo de Benjamin Graham (fórmula simplificada VI = √(22,5 x LPA x VPA)).
+    Retorna None se os dados necessários não estiverem disponíveis ou forem inválidos.
+    """
+    if lpa is None or vpa is None or lpa <= 0 or vpa <= 0:
+        return None
+    try:
+        # Fórmula simplificada de Graham: VI = sqrt(22.5 * LPA * VPA)
+        # Alguns usam um multiplicador de 15x PL e 1.5x P/VPA, cujo produto é 22.5
+        preco_justo = math.sqrt(22.5 * lpa * vpa)
+        return preco_justo
+    except:
+        return None
+
+def calcular_preco_teto_barsi(historico, info, taxa_desejada=0.06):
+    """
+    Calcula o Preço Teto de Décio Barsi.
+    Usa a média do Dividend Yield dos últimos 5 anos e a taxa de retorno desejada.
+    Retorna None se os dados necessários não estiverem disponíveis ou forem inválidos.
+    """
+    if historico.empty or info is None:
+        return None
+
+    try:
+        # Obter histórico de dividendos e preços dos últimos 5 anos
+        hoje = datetime.now()
+        cinco_anos_atras = hoje - timedelta(days=5*365) # Aproximadamente 5 anos
+
+        # Filtrar histórico de preços para os últimos 5 anos
+        historico_5a = historico[historico.index >= cinco_anos_atras]
+
+        if historico_5a.empty:
+            return None
+
+        # Calcular o DY anual para cada um dos últimos 5 anos
+        yields_anuais = []
+        for ano in range(hoje.year - 4, hoje.year + 1): # Últimos 5 anos (inclusive o atual incompleto)
+            inicio_ano = datetime(ano, 1, 1)
+            fim_ano = datetime(ano, 12, 31) if ano < hoje.year else hoje
+
+            historico_ano = historico[(historico.index >= inicio_ano) & (historico.index <= fim_ano)]
+            if historico_ano.empty:
+                continue
+
+            # Obter dividendos pagos no ano
+            # Nota: yfinance .dividends retorna a série de dividendos, precisamos filtrar pelo período
+            # Isso pode ser um pouco complexo de alinhar perfeitamente com o histórico de preços do período.
+            # Uma abordagem mais robusta seria pegar os dividendos de todo o período e agrupá-los por ano,
+            # e usar o preço médio ou o preço final do ano para calcular o yield anual.
+
+            # Simplificando: vamos somar os dividendos pagos no ano e dividir pelo preço médio do ano
+            try:
+                acao_temp = yf.Ticker(info.get('symbol'))
+                dividendos_periodo = acao_temp.dividends[(acao_temp.dividends.index >= inicio_ano) & (acao_temp.dividends.index <= fim_ano)]
+                total_dividendos_ano = dividendos_periodo.sum()
+            except:
+                total_dividendos_ano = 0 # Nenhum dividendo no ano ou erro
+
+            preco_medio_ano = historico_ano['Close'].mean()
+
+            if preco_medio_ano > 0:
+                yield_anual = total_dividendos_ano / preco_medio_ano
+                yields_anuais.append(yield_anual)
+
+        if not yields_anuais:
+            return None
+
+        media_yields = sum(yields_anuais) / len(yields_anuais)
+
+        if taxa_desejada > 0 and media_yields > 0:
+            preco_teto = (media_yields * info.get('previousClose', 0)) / taxa_desejada # Multiplicar pelo preço atual para ter o valor em R$
+            return preco_teto
+        else:
+            return None
+    except Exception as e:
+        # st.error(f"Erro no cálculo do Preço Teto: {e}") # Remover em produção
+        return None
+
 # App Streamlit
 st.title("📈 Avaliador de Ações e FIIs")
 
@@ -666,11 +893,13 @@ if st.button("🔍 Analisar"):
             info, historico = obter_dados(codigo)
             
             # Criar abas para organizar as informações
-            tab1, tab2, tab3, tab4 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
                 "📊 Dados Fundamentais",
                 "📈 Gráfico e Análise Temporal",
                 "🌐 Análise Setorial",
-                "📌 Recomendações"
+                "📌 Recomendações",
+                "💰 Valuation Avançado",
+                "📜 Demonstrações Financeiras Históricas"
             ])
             
             with tab1:
@@ -679,12 +908,113 @@ if st.button("🔍 Analisar"):
             with tab2:
                 mostrar_grafico(historico)
                 analise_temporal(historico)
+                mostrar_indicadores_historicos(yf.Ticker(codigo))
             
             with tab3:
                 analise_setorial_noticias(info, codigo)
             
             with tab4:
                 analise_sugestiva(info, perfil)
+
+            with tab5:
+                st.subheader("💰 Valuation Avançado")
+
+                # Cálculo e exibição do Preço Justo de Graham
+                lpa = info.get('earningsPerShare', None)
+                vpa = info.get('bookValue', None)
+                preco_justo = calcular_preco_justo_graham(lpa, vpa)
+
+                st.markdown("### Preço Justo de Benjamin Graham (Simplificado)")
+                if preco_justo is not None:
+                    st.write(f"**Preço Justo:** R$ {preco_justo:.2f}")
+                    preco_atual = info.get('previousClose')
+                    if preco_atual is not None:
+                        if preco_atual < preco_justo:
+                            st.success(f"✅ Preço atual (R$ {preco_atual:.2f}) está ABAIXO do Preço Justo de Graham.")
+                        elif preco_atual > preco_justo:
+                            st.warning(f"⚠️ Preço atual (R$ {preco_atual:.2f}) está ACIMA do Preço Justo de Graham.")
+                        else:
+                             st.info(f"ℹ️ Preço atual (R$ {preco_atual:.2f}) é igual ao Preço Justo de Graham.")
+                else:
+                    # Mensagem mais específica
+                    mensagem_erro_graham = "Não foi possível calcular o Preço Justo de Graham. "
+                    if lpa is None or lpa <= 0:
+                        mensagem_erro_graham += "LPA (Lucro por Ação) não disponível ou inválido. "
+                    if vpa is None or vpa <= 0:
+                        mensagem_erro_graham += "VPA (Valor Patrimonial por Ação) não disponível ou inválido."
+                    if lpa is not None and vpa is not None and lpa > 0 and vpa > 0:
+                         mensagem_erro_graham = "Erro no cálculo do Preço Justo de Graham." # Erro inesperado
+                    st.info(mensagem_erro_graham.strip())
+
+                st.markdown("--- ")
+
+                # Cálculo e exibição do Preço Teto de Barsi
+                preco_teto = calcular_preco_teto_barsi(historico, info)
+
+                st.markdown("### Preço Teto de Décio Barsi (Taxa Desejada: 6%)")
+                if preco_teto is not None:
+                    st.write(f"**Preço Teto:** R$ {preco_teto:.2f}")
+                    preco_atual = info.get('previousClose')
+                    if preco_atual is not None:
+                        if preco_atual < preco_teto:
+                            st.success(f"✅ Preço atual (R$ {preco_atual:.2f}) está ABAIXO do Preço Teto de Barsi.")
+                        elif preco_atual > preco_teto:
+                            st.warning(f"⚠️ Preço atual (R$ {preco_atual:.2f}) está ACIMA do Preço Teto de Barsi.")
+                        else:
+                            st.info(f"ℹ️ Preço atual (R$ {preco_atual:.2f}) é igual ao Preço Teto de Barsi.")
+                else:
+                    # Mensagem mais específica
+                    mensagem_erro_barsi = "Não foi possível calcular o Preço Teto de Barsi. "
+                    if historico.empty:
+                         mensagem_erro_barsi += "Histórico de preços não disponível. "
+                    if info is None:
+                         mensagem_erro_barsi += "Informações do ativo não disponíveis. "
+                    # A função calcular_preco_teto_barsi já trata a falta de dividendos ou média zero internamente,
+                    # mas podemos adicionar uma nota sobre a dependência do histórico de dividendos.
+                    mensagem_erro_barsi += "Verifique se o histórico de dividendos dos últimos 5 anos está disponível no Yahoo Finance para este ativo."
+                    st.info(mensagem_erro_barsi.strip())
+                
+            with tab6: # Conteúdo da nova aba
+                st.subheader("📜 Demonstrações Financeiras Históricas")
+
+                try:
+                    # Obter demonstrações financeiras
+                    acao = yf.Ticker(codigo)
+                    financials = acao.financials
+                    balance_sheet = acao.balance_sheet
+                    cashflow = acao.cashflow
+
+                    # Exibir Income Statement
+                    st.markdown("### Demonstrativo de Resultados (Income Statement)")
+                    if not financials.empty:
+                        # Transpor o DataFrame para que as datas fiquem nas colunas
+                        st.dataframe(financials.T.style.format(precision=2))
+                    else:
+                        st.info("Demonstrativo de Resultados não disponível.")
+
+                    st.markdown("--- ")
+
+                    # Exibir Balanço Patrimonial
+                    st.markdown("### Balanço Patrimonial (Balance Sheet)")
+                    if not balance_sheet.empty:
+                         # Transpor o DataFrame para que as datas fiquem nas colunas
+                        st.dataframe(balance_sheet.T.style.format(precision=2))
+                    else:
+                        st.info("Balanço Patrimonial não disponível.")
+
+                    st.markdown("--- ")
+
+                    # Exibir Fluxo de Caixa
+                    st.markdown("### Demonstrativo de Fluxo de Caixa (Cash Flow)")
+                    if not cashflow.empty:
+                         # Transpor o DataFrame para que as datas fiquem nas colunas
+                        st.dataframe(cashflow.T.style.format(precision=2))
+                    else:
+                        st.info("Demonstrativo de Fluxo de Caixa não disponível.")
+
+                except Exception as e:
+                    st.warning(f"Não foi possível obter ou exibir as demonstrações financeiras: {str(e)}")
+                    st.info("Verifique se o ativo é uma ação (FIIs geralmente não têm demonstrações detalhadas no yfinance) ou se os dados estão disponíveis para este período.")
                 
     except Exception as e:
         st.error(f"❌ Erro ao buscar dados: {str(e)}")
