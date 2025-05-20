@@ -170,24 +170,40 @@ perfil = st.selectbox(
     ]
 )
 
-# ====== NOVO: Análise Setorial ======
-def analise_setorial(info):
-    st.subheader("🌐 Análise Setorial e Macroeconômica")
+# ====== NOVO: Análise Setorial e Notícias ======
+def analise_setorial_noticias(info, codigo_acao):
+    st.subheader("🌐 Análise Setorial e Notícias")
     setor = info.get('sector', 'N/A')
     explicacao = {
-        'Financial Services': 'Setor financeiro tende a ser resiliente, mas sensível a juros.',
-        'Energy': 'Setor de energia pode ser cíclico e sensível a commodities.',
-        'Utilities': 'Setor de utilidade pública costuma ser defensivo.',
-        'Real Estate': 'Setor imobiliário é sensível a juros e ciclos econômicos.',
-        'Consumer Defensive': 'Setor defensivo, menos sensível a crises.',
-        'Basic Materials': 'Setor de commodities é cíclico e depende do mercado global.',
-        'Industrials': 'Setor industrial depende do crescimento econômico.',
-        'Healthcare': 'Setor de saúde tende a ser resiliente.',
-        'Technology': 'Setor de tecnologia pode ter alto crescimento, mas também volatilidade.',
+        'Financial Services': 'Setor financeiro tende a ser resiliente, mas sensível a juros. Inclui bancos, seguradoras e serviços de investimento.',
+        'Energy': 'Setor de energia pode ser cíclico e sensível a commodities e geopolítica. Inclui petróleo, gás e energias renováveis.',
+        'Utilities': 'Setor de utilidade pública costuma ser defensivo e regulado. Inclui empresas de energia elétrica, água e gás.',
+        'Real Estate': 'Setor imobiliário é sensível a juros, inflação e ciclos econômicos. Inclui construtoras, incorporadoras e fundos imobiliários (FIIs).',
+        'Consumer Defensive': 'Setor defensivo, menos sensível a crises econômicas. Inclui alimentos, bebidas, produtos domésticos e higiene.',
+        'Basic Materials': 'Setor de commodities é cíclico e depende do mercado global e preços das matérias-primas. Inclui mineração, siderurgia, papel e celulose.',
+        'Industrials': 'Setor industrial depende do crescimento econômico e investimento em infraestrutura. Inclui bens de capital, transporte e serviços industriais.',
+        'Healthcare': 'Setor de saúde tende a ser resiliente. Inclui hospitais, laboratórios e farmacêuticas.',
+        'Technology': 'Setor de tecnologia pode ter alto crescimento, mas também volatilidade. Inclui software, hardware e serviços de TI.',
+        'Consumer Cyclical': 'Setor cíclico, sensível ao consumo e renda disponível. Inclui varejo (não defensivo), viagens e lazer.',
+        'Communication Services': 'Setor de serviços de comunicação. Inclui telecomunicações e mídia.',
         'N/A': 'Setor não informado.'
     }
-    st.write(f"**Setor:** {setor}")
-    st.info(explicacao.get(setor, 'Setor não identificado.'))
+    st.write(f"**Setor:** **{setor}**")
+    st.info(explicacao.get(setor, 'Setor não identificado ou sem explicação detalhada disponível.'))
+    st.markdown("---")
+    st.subheader("📰 Notícias Recentes")
+    try:
+        ticker_obj = yf.Ticker(codigo_acao)
+        noticias = ticker_obj.news
+        if noticias:
+            for n in noticias[:5]: # Exibir as 5 notícias mais recentes
+                st.write(f"**{n['title']}**")
+                st.write(f"*Fonte: {n['publisher']} - {datetime.fromtimestamp(n['providerPublishTime']).strftime('%d/%m/%Y %H:%M')}*")
+                st.write(n['link'])
+        else:
+            st.info("Nenhuma notícia recente encontrada.")
+    except Exception as e:
+        st.warning(f"Não foi possível buscar notícias: {e}")
 
 # ====== MELHORIA: Recomendações personalizadas ======
 def analise_sugestiva(info, perfil):
@@ -308,7 +324,7 @@ if st.button("Analisar"):
         mostrar_dados_fundamentais(info)
         mostrar_grafico(historico)
         analise_temporal(historico)
-        analise_setorial(info)
+        analise_setorial_noticias(info, codigo)
         analise_sugestiva(info, perfil)
     except Exception as e:
         st.error(f"Erro ao buscar dados: {e}")
