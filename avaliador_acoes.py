@@ -18,59 +18,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilo personalizado
-st.markdown("""
-    <style>
-    .main {
-        padding: 2rem;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 2rem;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 4rem;
-        white-space: pre-wrap;
-        background-color: #f0f2f6;
-        border-radius: 4px 4px 0 0;
-        gap: 1rem;
-        padding-top: 10px;
-        padding-bottom: 10px;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #ffffff;
-        border-radius: 4px 4px 0 0;
-    }
-    .css-1d391kg {
-        padding: 1rem;
-    }
-    .stButton>button {
-        width: 100%;
-        background-color: #4CAF50;
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
-        border: none;
-        font-weight: bold;
-    }
-    .stButton>button:hover {
-        background-color: #45a049;
-    }
-    .metric-card {
-        background-color: #ffffff;
-        padding: 1rem;
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .news-card {
-        background-color: #ffffff;
-        padding: 1rem;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # Lista simplificada de ações e FIIs (adicione mais conforme desejar)
 ATIVOS_B3 = [
     # Bancos
@@ -177,35 +124,31 @@ def mostrar_dados_fundamentais(info):
     
     with col1:
         st.markdown("### Informações Básicas")
-        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
-        st.write(f"**Empresa/FII:** {info.get('longName', 'N/A')}")
-        st.write(f"**Setor:** {info.get('sector', 'N/A')}")
-        st.write(f"**Preço atual:** R$ {info.get('previousClose', 'N/A'):.2f}")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(): # Usando container para agrupar
+            st.write(f"**Empresa/FII:** {info.get('longName', 'N/A')}")
+            st.write(f"**Setor:** {info.get('sector', 'N/A')}")
+            st.write(f"**Preço atual:** R$ {info.get('previousClose', 'N/A'):.2f}")
         
         st.markdown("### Indicadores de Valuation")
-        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
-        st.write(f"**P/L:** {info.get('trailingPE', 'N/A')} *<small>(Preço/Lucro)</small>*", unsafe_allow_html=True)
-        st.write(f"**P/VPA:** {info.get('priceToBook', 'N/A')} *<small>(Preço/Valor Patrimonial)</small>*", unsafe_allow_html=True)
-        st.write(f"**EV/EBITDA:** {info.get('enterpriseToEbitda', 'N/A')} *<small>(Valor da Empresa/EBITDA)</small>*", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(): # Usando container para agrupar
+            st.write(f"**P/L:** {info.get('trailingPE', 'N/A')} *<small>(Preço/Lucro)</small>*", unsafe_allow_html=True)
+            st.write(f"**P/VPA:** {info.get('priceToBook', 'N/A')} *<small>(Preço/Valor Patrimonial)</small>*", unsafe_allow_html=True)
+            st.write(f"**EV/EBITDA:** {info.get('enterpriseToEbitda', 'N/A')} *<small>(Valor da Empresa/EBITDA)</small>*", unsafe_allow_html=True)
     
     with col2:
         st.markdown("### Indicadores de Rentabilidade")
-        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
-        st.write(f"**Dividend Yield:** {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}%", unsafe_allow_html=True)
-        st.write(f"**ROE:** {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}%", unsafe_allow_html=True)
-        st.write(f"**Margem Bruta:** {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
-        st.write(f"**Margem Líquida:** {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(): # Usando container para agrupar
+            st.write(f"**Dividend Yield:** {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}%", unsafe_allow_html=True)
+            st.write(f"**ROE:** {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}%", unsafe_allow_html=True)
+            st.write(f"**Margem Bruta:** {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
+            st.write(f"**Margem Líquida:** {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
         
         st.markdown("### Indicadores de Endividamento")
-        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
-        st.write(f"**Dívida Líquida/EBITDA:** {info.get('debtToEbitda', 'N/A')}")
-        st.write(f"**Liquidez Corrente:** {info.get('currentRatio', 'N/A')}")
-        st.write(f"**Caixa Total:** R$ {info.get('totalCash', 'N/A'):,.2f}")
-        st.write(f"**Dívida Total:** R$ {info.get('totalDebt', 'N/A'):,.2f}")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(): # Usando container para agrupar
+            st.write(f"**Dívida Líquida/EBITDA:** {info.get('debtToEbitda', 'N/A')}")
+            st.write(f"**Liquidez Corrente:** {info.get('currentRatio', 'N/A')}")
+            st.write(f"**Caixa Total:** R$ {info.get('totalCash', 'N/A'):,.2f}")
+            st.write(f"**Dívida Total:** R$ {info.get('totalDebt', 'N/A'):,.2f}")
 
 def mostrar_grafico(historico):
     st.subheader("📈 Tendência de Preço")
@@ -230,20 +173,17 @@ def analise_temporal(historico):
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
-        st.write("### Variação 3 meses")
-        st.write(f"## {variacao_3m:.2f}%")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(): # Usando container para agrupar
+            st.markdown("### Variação 3 meses")
+            st.metric(label="", value=f"{variacao_3m:.2f}%")
     with col2:
-        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
-        st.write("### Variação 6 meses")
-        st.write(f"## {variacao_6m:.2f}%")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(): # Usando container para agrupar
+            st.markdown("### Variação 6 meses")
+            st.metric(label="", value=f"{variacao_6m:.2f}%")
     with col3:
-        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
-        st.write("### Variação 1 ano")
-        st.write(f"## {variacao_1a:.2f}%")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(): # Usando container para agrupar
+            st.markdown("### Variação 1 ano")
+            st.metric(label="", value=f"{variacao_1a:.2f}%")
 
 # ====== NOVO: Análise Setorial e Notícias ======
 def analise_setorial_noticias(info, codigo_acao):
@@ -266,17 +206,17 @@ def analise_setorial_noticias(info, codigo_acao):
     st.write(f"**Setor:** **{setor}**")
     st.info(explicacao.get(setor, 'Setor não identificado ou sem explicação detalhada disponível.'))
     st.markdown("---")
-    st.subheader("📰 Notícias Recentes")
     
+    st.markdown("### 📰 Notícias Recentes")
     try:
         with st.spinner('Buscando notícias recentes...'):
             ticker_obj = yf.Ticker(codigo_acao)
             noticias = ticker_obj.news
             
             if noticias:
-                for n in noticias[:5]:  # Exibir as 5 notícias mais recentes
-                    with st.container():
-                        st.markdown(f"### {n['title']}")
+                for n in noticias[:5]: # Exibir as 5 notícias mais recentes
+                    with st.container(): # Cada notícia em um container
+                        st.markdown(f"**[{n['title']}]({n['link']})**") # Título clicável
                         
                         # Formatar a data
                         try:
@@ -286,13 +226,8 @@ def analise_setorial_noticias(info, codigo_acao):
                             data_formatada = "Data não disponível"
                         
                         # Exibir fonte e data
-                        st.markdown(f"*Fonte: {n.get('publisher', 'Fonte não disponível')} - {data_formatada}*")
+                        st.markdown(f"*Fonte: {n.get('publisher', 'Fonte não disponível')} - {data_formatada}* <br>", unsafe_allow_html=True)
                         
-                        # Exibir link clicável
-                        st.markdown(f"[Ler notícia completa]({n['link']})")
-                        
-                        # Adicionar uma linha separadora entre as notícias
-                        st.markdown("---")
             else:
                 st.info("Nenhuma notícia recente encontrada para este ativo.")
                 
