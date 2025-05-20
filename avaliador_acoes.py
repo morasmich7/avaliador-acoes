@@ -259,21 +259,6 @@ def analise_temporal(historico):
         </div>
         """, unsafe_allow_html=True)
 
-# ====== NOVO: Perfil do investidor ======
-perfil = st.selectbox(
-    'Qual seu perfil de investimento?',
-    [
-        'Neutro',
-        'Crescimento (busca valorização)',
-        'Dividendos (busca renda passiva)',
-        'Curto prazo',
-        'Médio prazo',
-        'Longo prazo',
-        'Baixa tolerância a risco',
-        'Alta tolerância a risco'
-    ]
-)
-
 # ====== NOVO: Análise Setorial e Notícias ======
 def analise_setorial_noticias(info, codigo_acao):
     st.subheader("🌐 Análise Setorial e Notícias")
