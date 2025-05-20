@@ -633,24 +633,11 @@ with st.sidebar:
         - Volume
         - Indicadores
         
-        **3. Análise Setorial**  
+        **3. Análise Setorial**
         - Setor
         - Economia
         - Riscos
         """)
-
-    # Adicionar botão para buscar ações do TradingView
-    if st.button("🔄 Atualizar Lista de Ações"):
-        with st.spinner('Buscando ações...'):
-            if SELENIUM_AVAILABLE:
-                acoes = buscar_acoes_tradingview()
-            else:
-                acoes = buscar_acoes_brasileiras()
-                
-            if acoes:
-                st.success(f"✅ {len(acoes)} ações encontradas!")
-            else:
-                st.info("ℹ️ Use a lista predefinida de ações ou adicione manualmente os códigos desejados.")
 
     # Adicionar seção para adicionar ações manualmente na sidebar
     st.markdown("---")
