@@ -189,13 +189,6 @@ def analise_tecnica(historico):
     plt.xticks(rotation=45)
     ax.legend()
     st.pyplot(fig)
-    st.write(f"**RSI (14 dias):** {historico['RSI'].iloc[-1]:.2f}")
-    if historico['RSI'].iloc[-1] > 70:
-        st.warning("RSI indica sobrecompra (pode haver correção em breve)")
-    elif historico['RSI'].iloc[-1] < 30:
-        st.success("RSI indica sobrevenda (pode haver oportunidade de compra)")
-    else:
-        st.info("RSI em zona neutra")
 
 # ====== NOVO: Análise Setorial ======
 def analise_setorial(info):
