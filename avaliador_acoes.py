@@ -1,4 +1,4 @@
-# Requisitos: Instale com 'pip install yfinance streamlit pandas matplotlib'
+# Requisitos: Instale com 'pip install yfinance streamlit pandas matplotlib requests beautifulsoup4'
 
 import yfinance as yf
 import pandas as pd
@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import unicodedata
 import os
 import requests
+from bs4 import BeautifulSoup
 import io
 
 # Configuração da página
@@ -375,6 +376,111 @@ def analise_sugestiva(info, perfil):
         else:
             st.info(s)
 
+def buscar_acoes_tradingview():
+    """
+    Busca todas as ações listadas no TradingView Screener
+    """
+    try:
+        url = "https://br.tradingview.com/screener/"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Aqui precisamos encontrar o elemento correto que contém as ações
+            # Como o TradingView usa JavaScript para carregar os dados, precisaremos
+            # usar uma abordagem diferente, como Selenium ou a API do TradingView
+            
+            st.warning("⚠️ A busca direta no TradingView não está disponível no momento devido a limitações técnicas.")
+            st.info("💡 Sugestão: Use a lista predefinida de ações ou adicione manualmente os códigos desejados.")
+            
+            return []
+        else:
+            st.error(f"❌ Erro ao acessar o TradingView: {response.status_code}")
+            return []
+            
+    except Exception as e:
+        st.error(f"❌ Erro ao buscar ações: {str(e)}")
+        return []
+
+def buscar_acoes_brasileiras():
+    """
+    Busca todas as ações brasileiras usando a API do Yahoo Finance
+    """
+    try:
+        # Lista de índices brasileiros para buscar ações
+        indices = ['^BVSP', '^IBXX']  # Bovespa e IBXX
+        
+        todas_acoes = []
+        for indice in indices:
+            ticker = yf.Ticker(indice)
+            # Buscar componentes do índice
+            componentes = ticker.info.get('components', [])
+            if componentes:
+                for componente in componentes:
+                    if isinstance(componente, str) and componente.endswith('.SA'):
+                        codigo = componente.replace('.SA', '')
+                        try:
+                            info = yf.Ticker(componente).info
+                            nome = info.get('longName', codigo)
+                            todas_acoes.append({
+                                "Codigo": codigo,
+                                "Nome": nome
+                            })
+                        except:
+                            continue
+        
+        if todas_acoes:
+            # Atualizar a lista global de ativos
+            global ATIVOS_B3
+            ATIVOS_B3 = todas_acoes
+            return todas_acoes
+        else:
+            st.warning("⚠️ Não foi possível encontrar ações brasileiras.")
+            return []
+            
+    except Exception as e:
+        st.error(f"❌ Erro ao buscar ações brasileiras: {str(e)}")
+        return []
+
+def adicionar_acao_manual():
+    """
+    Permite que o usuário adicione uma ação manualmente
+    """
+    st.subheader("➕ Adicionar Nova Ação")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        codigo = st.text_input("Código da ação (ex: PETR4):").strip().upper()
+    with col2:
+        nome = st.text_input("Nome da empresa:").strip()
+    
+    if st.button("Adicionar"):
+        if codigo and nome:
+            try:
+                # Verificar se a ação existe no Yahoo Finance
+                ticker = yf.Ticker(f"{codigo}.SA")
+                info = ticker.info
+                
+                if info:
+                    # Adicionar à lista global
+                    global ATIVOS_B3
+                    nova_acao = {
+                        "Codigo": codigo,
+                        "Nome": nome
+                    }
+                    ATIVOS_B3.append(nova_acao)
+                    st.success(f"✅ Ação {codigo} adicionada com sucesso!")
+                else:
+                    st.error("❌ Ação não encontrada no Yahoo Finance.")
+            except Exception as e:
+                st.error(f"❌ Erro ao adicionar ação: {str(e)}")
+        else:
+            st.warning("⚠️ Preencha todos os campos.")
+
 # App Streamlit
 st.title("📈 Avaliador de Ações e FIIs")
 
@@ -415,6 +521,20 @@ with st.sidebar:
         - Economia
         - Riscos
         """)
+
+    # Adicionar botão para buscar ações do TradingView
+    if st.button("🔄 Atualizar Lista de Ações"):
+        with st.spinner('Buscando ações brasileiras...'):
+            acoes = buscar_acoes_brasileiras()
+            if acoes:
+                st.success(f"✅ {len(acoes)} ações encontradas!")
+            else:
+                st.info("ℹ️ Use a lista predefinida de ações ou adicione manualmente os códigos desejados.")
+
+    # Adicionar seção para adicionar ações manualmente na sidebar
+    st.markdown("---")
+    with st.expander("➕ Adicionar Ação Manualmente"):
+        adicionar_acao_manual()
 
 # Área principal
 col1, col2 = st.columns([2, 1])
