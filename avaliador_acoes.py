@@ -177,43 +177,35 @@ def mostrar_dados_fundamentais(info):
     
     with col1:
         st.markdown("### Informações Básicas")
-        st.markdown(f"""
-        <div class="metric-card">
-            <p><strong>Empresa/FII:</strong> {info.get('longName', 'N/A')}</p>
-            <p><strong>Setor:</strong> {info.get('sector', 'N/A')}</p>
-            <p><strong>Preço atual:</strong> R$ {info.get('previousClose', 'N/A'):.2f}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
+        st.write(f"**Empresa/FII:** {info.get('longName', 'N/A')}")
+        st.write(f"**Setor:** {info.get('sector', 'N/A')}")
+        st.write(f"**Preço atual:** R$ {info.get('previousClose', 'N/A'):.2f}")
+        st.markdown("</div>", unsafe_allow_html=True)
         
         st.markdown("### Indicadores de Valuation")
-        st.markdown(f"""
-        <div class="metric-card">
-            <p><strong>P/L:</strong> {info.get('trailingPE', 'N/A')} <small>(Preço/Lucro)</small></p>
-            <p><strong>P/VPA:</strong> {info.get('priceToBook', 'N/A')} <small>(Preço/Valor Patrimonial)</small></p>
-            <p><strong>EV/EBITDA:</strong> {info.get('enterpriseToEbitda', 'N/A')} <small>(Valor da Empresa/EBITDA)</small></p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
+        st.write(f"**P/L:** {info.get('trailingPE', 'N/A')} *<small>(Preço/Lucro)</small>*", unsafe_allow_html=True)
+        st.write(f"**P/VPA:** {info.get('priceToBook', 'N/A')} *<small>(Preço/Valor Patrimonial)</small>*", unsafe_allow_html=True)
+        st.write(f"**EV/EBITDA:** {info.get('enterpriseToEbitda', 'N/A')} *<small>(Valor da Empresa/EBITDA)</small>*", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     
     with col2:
         st.markdown("### Indicadores de Rentabilidade")
-        st.markdown(f"""
-        <div class="metric-card">
-            <p><strong>Dividend Yield:</strong> {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}%</p>
-            <p><strong>ROE:</strong> {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}%</p>
-            <p><strong>Margem Bruta:</strong> {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}%</p>
-            <p><strong>Margem Líquida:</strong> {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}%</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
+        st.write(f"**Dividend Yield:** {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}%", unsafe_allow_html=True)
+        st.write(f"**ROE:** {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}%", unsafe_allow_html=True)
+        st.write(f"**Margem Bruta:** {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
+        st.write(f"**Margem Líquida:** {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
         
         st.markdown("### Indicadores de Endividamento")
-        st.markdown(f"""
-        <div class="metric-card">
-            <p><strong>Dívida Líquida/EBITDA:</strong> {info.get('debtToEbitda', 'N/A')}</p>
-            <p><strong>Liquidez Corrente:</strong> {info.get('currentRatio', 'N/A')}</p>
-            <p><strong>Caixa Total:</strong> R$ {info.get('totalCash', 'N/A'):,.2f}</p>
-            <p><strong>Dívida Total:</strong> R$ {info.get('totalDebt', 'N/A'):,.2f}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
+        st.write(f"**Dívida Líquida/EBITDA:** {info.get('debtToEbitda', 'N/A')}")
+        st.write(f"**Liquidez Corrente:** {info.get('currentRatio', 'N/A')}")
+        st.write(f"**Caixa Total:** R$ {info.get('totalCash', 'N/A'):,.2f}")
+        st.write(f"**Dívida Total:** R$ {info.get('totalDebt', 'N/A'):,.2f}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 def mostrar_grafico(historico):
     st.subheader("📈 Tendência de Preço")
@@ -238,26 +230,20 @@ def analise_temporal(historico):
     
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>Variação 3 meses</h3>
-            <h2>{variacao_3m:.2f}%</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
+        st.write("### Variação 3 meses")
+        st.write(f"## {variacao_3m:.2f}%")
+        st.markdown("</div>", unsafe_allow_html=True)
     with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>Variação 6 meses</h3>
-            <h2>{variacao_6m:.2f}%</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
+        st.write("### Variação 6 meses")
+        st.write(f"## {variacao_6m:.2f}%")
+        st.markdown("</div>", unsafe_allow_html=True)
     with col3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>Variação 1 ano</h3>
-            <h2>{variacao_1a:.2f}%</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("<div class=\"metric-card\">", unsafe_allow_html=True)
+        st.write("### Variação 1 ano")
+        st.write(f"## {variacao_1a:.2f}%")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ====== NOVO: Análise Setorial e Notícias ======
 def analise_setorial_noticias(info, codigo_acao):
