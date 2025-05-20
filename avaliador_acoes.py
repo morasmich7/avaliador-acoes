@@ -10,12 +10,66 @@ import os
 import requests
 import io
 
-# Configuração inicial da página
+# Configuração da página
 st.set_page_config(
     page_title="Avaliador de Ações e FIIs",
     page_icon="📈",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# Estilo personalizado
+st.markdown("""
+    <style>
+    .main {
+        padding: 2rem;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 4rem;
+        white-space: pre-wrap;
+        background-color: #f0f2f6;
+        border-radius: 4px 4px 0 0;
+        gap: 1rem;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #ffffff;
+        border-radius: 4px 4px 0 0;
+    }
+    .css-1d391kg {
+        padding: 1rem;
+    }
+    .stButton>button {
+        width: 100%;
+        background-color: #4CAF50;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        border: none;
+        font-weight: bold;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;
+    }
+    .metric-card {
+        background-color: #ffffff;
+        padding: 1rem;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .news-card {
+        background-color: #ffffff;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # Lista simplificada de ações e FIIs (adicione mais conforme desejar)
 ATIVOS_B3 = [
@@ -116,26 +170,53 @@ def obter_dados(codigo):
     return info, historico
 
 def mostrar_dados_fundamentais(info):
-    st.subheader("Dados Fundamentais")
-    st.write(f"**Empresa/FII:** {info.get('longName', 'N/A')}")
-    st.write(f"**Setor:** {info.get('sector', 'N/A')}")
-    st.write(f"**Preço atual:** R$ {info.get('previousClose', 'N/A'):.2f}")
-    st.write(f"**P/L:** {info.get('trailingPE', 'N/A')} *<small>(Preço/Lucro - Quão cara está a ação em relação ao lucro)</small>*", unsafe_allow_html=True)
-    st.write(f"**P/VPA:** {info.get('priceToBook', 'N/A')} *<small>(Preço/Valor Patrimonial por Ação - Quão cara está a ação em relação ao seu valor contábil)</small>*", unsafe_allow_html=True)
-    st.write(f"**Dividend Yield:** {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}% *<small>(Rendimento em dividendos nos últimos 12 meses)</small>*", unsafe_allow_html=True)
-    st.write(f"**EV/EBITDA:** {info.get('enterpriseToEbitda', 'N/A')} *<small>(Valor da Empresa/EBITDA - Usado para comparar empresas, especialmente no mesmo setor)</small>*", unsafe_allow_html=True)
-    st.write(f"**Dívida Líquida/EBITDA:** {info.get('debtToEbitda', 'N/A')} *<small>(Capacidade de pagar a dívida com o lucro operacional)</small>*", unsafe_allow_html=True)
-    st.write(f"**ROE:** {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}% *<small>(Rentabilidade sobre o Patrimônio Líquido)</small>*", unsafe_allow_html=True)
-    st.write(f"**Margem Bruta:** {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}% *<small>(Lucro Bruto sobre a Receita Total)</small>*", unsafe_allow_html=True)
-    st.write(f"**Margem Líquida:** {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}% *<small>(Lucro Líquido sobre a Receita Total)</small>*", unsafe_allow_html=True)
-    st.write(f"**Payout Ratio (Distribuição de Dividendos):** {round(info.get('payoutRatio', 0) * 100, 2) if info.get('payoutRatio') is not None else 'N/A'}% *<small>(Percentual do lucro distribuído como dividendos)</small>*", unsafe_allow_html=True)
-    st.write(f"**Liquidez Corrente:** {info.get('currentRatio', 'N/A')} *<small>(Capacidade de pagar dívidas de curto prazo)</small>*", unsafe_allow_html=True)
-    st.write(f"**Caixa Total:** R$ {info.get('totalCash', 'N/A'):,.2f}")
-    st.write(f"**Dívida Total:** R$ {info.get('totalDebt', 'N/A'):,.2f}")
-    st.write(f"**Lucro por ação (EPS):** {info.get('trailingEps', 'N/A')} *<small>(Lucro por ação nos últimos 12 meses)</small>*", unsafe_allow_html=True)
+    st.subheader("📊 Dados Fundamentais")
+    
+    # Criar colunas para os dados fundamentais
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### Informações Básicas")
+        st.markdown(f"""
+        <div class="metric-card">
+            <p><strong>Empresa/FII:</strong> {info.get('longName', 'N/A')}</p>
+            <p><strong>Setor:</strong> {info.get('sector', 'N/A')}</p>
+            <p><strong>Preço atual:</strong> R$ {info.get('previousClose', 'N/A'):.2f}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("### Indicadores de Valuation")
+        st.markdown(f"""
+        <div class="metric-card">
+            <p><strong>P/L:</strong> {info.get('trailingPE', 'N/A')} <small>(Preço/Lucro)</small></p>
+            <p><strong>P/VPA:</strong> {info.get('priceToBook', 'N/A')} <small>(Preço/Valor Patrimonial)</small></p>
+            <p><strong>EV/EBITDA:</strong> {info.get('enterpriseToEbitda', 'N/A')} <small>(Valor da Empresa/EBITDA)</small></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("### Indicadores de Rentabilidade")
+        st.markdown(f"""
+        <div class="metric-card">
+            <p><strong>Dividend Yield:</strong> {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}%</p>
+            <p><strong>ROE:</strong> {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}%</p>
+            <p><strong>Margem Bruta:</strong> {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}%</p>
+            <p><strong>Margem Líquida:</strong> {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}%</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("### Indicadores de Endividamento")
+        st.markdown(f"""
+        <div class="metric-card">
+            <p><strong>Dívida Líquida/EBITDA:</strong> {info.get('debtToEbitda', 'N/A')}</p>
+            <p><strong>Liquidez Corrente:</strong> {info.get('currentRatio', 'N/A')}</p>
+            <p><strong>Caixa Total:</strong> R$ {info.get('totalCash', 'N/A'):,.2f}</p>
+            <p><strong>Dívida Total:</strong> R$ {info.get('totalDebt', 'N/A'):,.2f}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 def mostrar_grafico(historico):
-    st.subheader("Tendência de Preço - Último Ano")
+    st.subheader("📈 Tendência de Preço")
     fig, ax = plt.subplots(figsize=(12, 6))
     historico['Close'].plot(ax=ax, color='#2196F3', linewidth=2)
     ax.set_ylabel("Preço de Fechamento (R$)")
@@ -145,7 +226,7 @@ def mostrar_grafico(historico):
     st.pyplot(fig)
 
 def analise_temporal(historico):
-    st.subheader("📊 Análise Temporal")
+    st.subheader("⏱️ Análise Temporal")
     historico.index = historico.index.tz_localize(None)
     tres_meses_atras = datetime.now() - timedelta(days=90)
     dados_3m = historico[historico.index >= tres_meses_atras]
@@ -154,13 +235,29 @@ def analise_temporal(historico):
     dados_6m = historico[historico.index >= seis_meses_atras]
     variacao_6m = ((dados_6m['Close'].iloc[-1] / dados_6m['Close'].iloc[0]) - 1) * 100 if not dados_6m.empty else 0
     variacao_1a = ((historico['Close'].iloc[-1] / historico['Close'].iloc[0]) - 1) * 100 if not historico.empty else 0
+    
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Variação 3 meses", f"{variacao_3m:.2f}%")
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>Variação 3 meses</h3>
+            <h2>{variacao_3m:.2f}%</h2>
+        </div>
+        """, unsafe_allow_html=True)
     with col2:
-        st.metric("Variação 6 meses", f"{variacao_6m:.2f}%")
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>Variação 6 meses</h3>
+            <h2>{variacao_6m:.2f}%</h2>
+        </div>
+        """, unsafe_allow_html=True)
     with col3:
-        st.metric("Variação 1 ano", f"{variacao_1a:.2f}%")
+        st.markdown(f"""
+        <div class="metric-card">
+            <h3>Variação 1 ano</h3>
+            <h2>{variacao_1a:.2f}%</h2>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ====== NOVO: Perfil do investidor ======
 perfil = st.selectbox(
@@ -373,63 +470,88 @@ def analise_sugestiva(info, perfil):
             st.info(s)
 
 # App Streamlit
-st.title("📈 Avaliador de Ações e FIIs - Fundamentalista e Técnico")
+st.title("📈 Avaliador de Ações e FIIs")
 
-with st.expander("🔍 Como analisar uma ação ou FII? (clique para ver dicas)"):
-    st.markdown("""
-**1. Análise Fundamentalista (saúde e valor da empresa)**  
-- **Lucro e crescimento:**  
-  - Lucro por ação (LPA): mede o lucro líquido dividido pelo número de ações.  
-  - Histórico de crescimento: a empresa está crescendo ano após ano?  
-- **Valuation (valor justo da ação):**  
-  - P/L (Preço/Lucro): compara o preço da ação com o lucro da empresa. Um P/L muito alto pode indicar ação cara.  
-  - P/VPA (Preço/Valor Patrimonial por Ação): mede quanto o mercado está pagando sobre o valor contábil da empresa.  
-  - Dividend Yield: rendimento que o investidor recebe em dividendos.  
-  - EV/EBITDA: útil para comparar empresas do mesmo setor.  
-- **Endividamento:**  
-  - Dívida líquida/EBITDA: mostra se a empresa tem fôlego para pagar suas dívidas.  
-  - Grau de alavancagem: dívida sobre o patrimônio.  
-- **Governança corporativa:**  
-  - A empresa tem práticas transparentes e sólidas de gestão?  
-  - Está envolvida em escândalos ou investigações?  
+# Sidebar
+with st.sidebar:
+    st.header("⚙️ Configurações")
+    perfil = st.selectbox(
+        'Qual seu perfil de investimento?',
+        [
+            'Neutro',
+            'Crescimento (busca valorização)',
+            'Dividendos (busca renda passiva)',
+            'Curto prazo',
+            'Médio prazo',
+            'Longo prazo',
+            'Baixa tolerância a risco',
+            'Alta tolerância a risco'
+        ]
+    )
+    
+    st.markdown("---")
+    st.markdown("### 📚 Guia Rápido")
+    with st.expander("Como analisar uma ação ou FII?"):
+        st.markdown("""
+        **1. Análise Fundamentalista**  
+        - Lucro e crescimento
+        - Valuation
+        - Endividamento
+        - Governança
+        
+        **2. Análise Técnica**  
+        - Tendências
+        - Volume
+        - Indicadores
+        
+        **3. Análise Setorial**  
+        - Setor
+        - Economia
+        - Riscos
+        """)
 
-**2. Análise Técnica (movimento do preço da ação)**  
-- Suporte e resistência  
-- Tendência de alta ou baixa  
-- Volume de negociações  
-- Indicadores técnicos: IFR (Índice de Força Relativa), MACD, médias móveis  
+# Área principal
+col1, col2 = st.columns([2, 1])
+with col1:
+    nome_empresa = st.text_input("🔍 Nome da empresa ou fundo:")
+    df_ativos = carregar_ativos_b3()
+    codigo_sugerido = ""
+    if not df_ativos.empty and nome_empresa:
+        codigo_sugerido = buscar_codigo_por_nome(nome_empresa, df_ativos)
 
-**3. Análise Setorial e Macroeconômica**  
-- O setor da empresa está em crescimento ou retração?  
-- Como a economia afeta o negócio (juros, inflação, câmbio)?  
-- A empresa está exposta a riscos regulatórios?  
+with col2:
+    if codigo_sugerido:
+        st.info(f"💡 Código sugerido: {codigo_sugerido}")
+        codigo = st.text_input("📝 Código da ação/FII:", value=codigo_sugerido)
+    else:
+        codigo = st.text_input("📝 Código da ação/FII:")
 
-**4. Perfil do investidor**  
-- Você busca crescimento ou renda passiva (dividendos)?  
-- Qual seu prazo de investimento?  
-- Qual o seu nível de tolerância a risco?  
-    """)
-
-df_ativos = carregar_ativos_b3()
-
-nome_empresa = st.text_input("Nome da empresa ou fundo:")
-codigo_sugerido = ""
-if not df_ativos.empty and nome_empresa:
-    codigo_sugerido = buscar_codigo_por_nome(nome_empresa, df_ativos)
-
-if codigo_sugerido:
-    st.info(f"Código sugerido: {codigo_sugerido}")
-    codigo = st.text_input("Código da ação/FII:", value=codigo_sugerido)
-else:
-    codigo = st.text_input("Código da ação/FII:")
-
-if st.button("Analisar"):
+if st.button("🔍 Analisar"):
     try:
-        info, historico = obter_dados(codigo)
-        mostrar_dados_fundamentais(info)
-        mostrar_grafico(historico)
-        analise_temporal(historico)
-        analise_setorial_noticias(info, codigo)
-        analise_sugestiva(info, perfil)
+        with st.spinner('Carregando dados...'):
+            info, historico = obter_dados(codigo)
+            
+            # Criar abas para organizar as informações
+            tab1, tab2, tab3, tab4 = st.tabs([
+                "📊 Dados Fundamentais",
+                "📈 Gráfico e Análise Temporal",
+                "🌐 Análise Setorial",
+                "📌 Recomendações"
+            ])
+            
+            with tab1:
+                mostrar_dados_fundamentais(info)
+            
+            with tab2:
+                mostrar_grafico(historico)
+                analise_temporal(historico)
+            
+            with tab3:
+                analise_setorial_noticias(info, codigo)
+            
+            with tab4:
+                analise_sugestiva(info, perfil)
+                
     except Exception as e:
-        st.error(f"Erro ao buscar dados: {e}")
+        st.error(f"❌ Erro ao buscar dados: {str(e)}")
+        st.info("💡 Dica: Verifique se o código da ação/FII está correto e tente novamente.")
