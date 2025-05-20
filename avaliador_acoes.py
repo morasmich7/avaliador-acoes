@@ -10,6 +10,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import io
+import math # Importar math para usar sqrt
 
 # Tentar importar o Selenium, se não estiver disponível, usar alternativa
 try:
@@ -598,6 +599,86 @@ def adicionar_acao_manual():
         else:
             st.warning("⚠️ Preencha todos os campos.")
 
+def calcular_preco_justo_graham(lpa, vpa):
+    """
+    Calcula o Preço Justo de Benjamin Graham (fórmula simplificada VI = √(22,5 x LPA x VPA)).
+    Retorna None se os dados necessários não estiverem disponíveis ou forem inválidos.
+    """
+    if lpa is None or vpa is None or lpa <= 0 or vpa <= 0:
+        return None
+    try:
+        # Fórmula simplificada de Graham: VI = sqrt(22.5 * LPA * VPA)
+        # Alguns usam um multiplicador de 15x PL e 1.5x P/VPA, cujo produto é 22.5
+        preco_justo = math.sqrt(22.5 * lpa * vpa)
+        return preco_justo
+    except:
+        return None
+
+def calcular_preco_teto_barsi(historico, info, taxa_desejada=0.06):
+    """
+    Calcula o Preço Teto de Décio Barsi.
+    Usa a média do Dividend Yield dos últimos 5 anos e a taxa de retorno desejada.
+    Retorna None se os dados necessários não estiverem disponíveis ou forem inválidos.
+    """
+    if historico.empty or info is None:
+        return None
+
+    try:
+        # Obter histórico de dividendos e preços dos últimos 5 anos
+        hoje = datetime.now()
+        cinco_anos_atras = hoje - timedelta(days=5*365) # Aproximadamente 5 anos
+
+        # Filtrar histórico de preços para os últimos 5 anos
+        historico_5a = historico[historico.index >= cinco_anos_atras]
+
+        if historico_5a.empty:
+            return None
+
+        # Calcular o DY anual para cada um dos últimos 5 anos
+        yields_anuais = []
+        for ano in range(hoje.year - 4, hoje.year + 1): # Últimos 5 anos (inclusive o atual incompleto)
+            inicio_ano = datetime(ano, 1, 1)
+            fim_ano = datetime(ano, 12, 31) if ano < hoje.year else hoje
+
+            historico_ano = historico[(historico.index >= inicio_ano) & (historico.index <= fim_ano)]
+            if historico_ano.empty:
+                continue
+
+            # Obter dividendos pagos no ano
+            # Nota: yfinance .dividends retorna a série de dividendos, precisamos filtrar pelo período
+            # Isso pode ser um pouco complexo de alinhar perfeitamente com o histórico de preços do período.
+            # Uma abordagem mais robusta seria pegar os dividendos de todo o período e agrupá-los por ano,
+            # e usar o preço médio ou o preço final do ano para calcular o yield anual.
+
+            # Simplificando: vamos somar os dividendos pagos no ano e dividir pelo preço médio do ano
+            try:
+                acao_temp = yf.Ticker(info.get('symbol'))
+                dividendos_periodo = acao_temp.dividends[(acao_temp.dividends.index >= inicio_ano) & (acao_temp.dividends.index <= fim_ano)]
+                total_dividendos_ano = dividendos_periodo.sum()
+            except:
+                total_dividendos_ano = 0 # Nenhum dividendo no ano ou erro
+
+            preco_medio_ano = historico_ano['Close'].mean()
+
+            if preco_medio_ano > 0:
+                 yield_anual = total_dividendos_ano / preco_medio_ano
+                 yields_anuais.append(yield_anual)
+
+
+        if not yields_anuais:
+            return None
+
+        media_yields = sum(yields_anuais) / len(yields_anuais)
+
+        if taxa_desejada > 0 and media_yields > 0:
+            preco_teto = (media_yields * info.get('previousClose', 0)) / taxa_desejada # Multiplicar pelo preço atual para ter o valor em R$
+            return preco_teto
+        else:
+            return None
+    except Exception as e:
+        # st.error(f"Erro no cálculo do Preço Teto: {e}") # Remover em produção
+        return None
+
 # App Streamlit
 st.title("📈 Avaliador de Ações e FIIs")
 
@@ -666,11 +747,12 @@ if st.button("🔍 Analisar"):
             info, historico = obter_dados(codigo)
             
             # Criar abas para organizar as informações
-            tab1, tab2, tab3, tab4 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5 = st.tabs([
                 "📊 Dados Fundamentais",
                 "📈 Gráfico e Análise Temporal",
                 "🌐 Análise Setorial",
-                "📌 Recomendações"
+                "📌 Recomendações",
+                "💰 Valuation Avançado"
             ])
             
             with tab1:
@@ -685,6 +767,47 @@ if st.button("🔍 Analisar"):
             
             with tab4:
                 analise_sugestiva(info, perfil)
+
+            with tab5:
+                st.subheader("💰 Valuation Avançado")
+
+                # Cálculo e exibição do Preço Justo de Graham
+                lpa = info.get('earningsPerShare', None)
+                vpa = info.get('bookValue', None)
+                preco_justo = calcular_preco_justo_graham(lpa, vpa)
+
+                st.markdown("### Preço Justo de Benjamin Graham (Simplificado)")
+                if preco_justo is not None:
+                    st.write(f"**Preço Justo:** R$ {preco_justo:.2f}")
+                    preco_atual = info.get('previousClose')
+                    if preco_atual is not None:
+                        if preco_atual < preco_justo:
+                            st.success(f"✅ Preço atual (R$ {preco_atual:.2f}) está ABAIXO do Preço Justo de Graham.")
+                        elif preco_atual > preco_justo:
+                            st.warning(f"⚠️ Preço atual (R$ {preco_atual:.2f}) está ACIMA do Preço Justo de Graham.")
+                        else:
+                             st.info(f"ℹ️ Preço atual (R$ {preco_atual:.2f}) é igual ao Preço Justo de Graham.")
+                else:
+                    st.info("Não foi possível calcular o Preço Justo de Graham. Verifique se o LPA e VPA estão disponíveis para este ativo.")
+
+                st.markdown("--- ")
+
+                # Cálculo e exibição do Preço Teto de Barsi
+                preco_teto = calcular_preco_teto_barsi(historico, info)
+
+                st.markdown("### Preço Teto de Décio Barsi (Taxa Desejada: 6%)")
+                if preco_teto is not None:
+                    st.write(f"**Preço Teto:** R$ {preco_teto:.2f}")
+                    preco_atual = info.get('previousClose')
+                    if preco_atual is not None:
+                        if preco_atual < preco_teto:
+                            st.success(f"✅ Preço atual (R$ {preco_atual:.2f}) está ABAIXO do Preço Teto de Barsi.")
+                        elif preco_atual > preco_teto:
+                            st.warning(f"⚠️ Preço atual (R$ {preco_atual:.2f}) está ACIMA do Preço Teto de Barsi.")
+                        else:
+                            st.info(f"ℹ️ Preço atual (R$ {preco_atual:.2f}) é igual ao Preço Teto de Barsi.")
+                else:
+                    st.info("Não foi possível calcular o Preço Teto de Barsi. Verifique se o histórico de dividendos está disponível para este ativo.")
                 
     except Exception as e:
         st.error(f"❌ Erro ao buscar dados: {str(e)}")
