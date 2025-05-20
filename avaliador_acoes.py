@@ -1,4 +1,4 @@
-# Requisitos: Instale com 'pip install yfinance streamlit pandas matplotlib requests beautifulsoup4'
+# Requisitos: Instale com 'pip install yfinance streamlit pandas matplotlib requests beautifulsoup4 selenium webdriver_manager'
 
 import yfinance as yf
 import pandas as pd
@@ -10,6 +10,14 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import io
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+import time
 
 # Configuração da página
 st.set_page_config(
@@ -378,32 +386,60 @@ def analise_sugestiva(info, perfil):
 
 def buscar_acoes_tradingview():
     """
-    Busca todas as ações listadas no TradingView Screener
+    Busca todas as ações listadas no TradingView Screener usando Selenium
     """
     try:
-        url = "https://br.tradingview.com/screener/"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
+        st.info("🔄 Iniciando busca de ações no TradingView...")
         
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
+        # Configurar o Chrome em modo headless
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        
+        # Inicializar o driver
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        
+        try:
+            # Acessar o TradingView Screener
+            driver.get("https://br.tradingview.com/screener/")
             
-            # Aqui precisamos encontrar o elemento correto que contém as ações
-            # Como o TradingView usa JavaScript para carregar os dados, precisaremos
-            # usar uma abordagem diferente, como Selenium ou a API do TradingView
+            # Aguardar o carregamento da página
+            time.sleep(5)  # Aguardar carregamento inicial
             
-            st.warning("⚠️ A busca direta no TradingView não está disponível no momento devido a limitações técnicas.")
-            st.info("💡 Sugestão: Use a lista predefinida de ações ou adicione manualmente os códigos desejados.")
+            # Aguardar até que a tabela de ações seja carregada
+            wait = WebDriverWait(driver, 20)
+            tabela = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "tv-screener-table")))
             
-            return []
-        else:
-            st.error(f"❌ Erro ao acessar o TradingView: {response.status_code}")
-            return []
+            # Extrair dados das ações
+            acoes = []
+            linhas = tabela.find_elements(By.TAG_NAME, "tr")
+            
+            for linha in linhas[1:]:  # Pular o cabeçalho
+                colunas = linha.find_elements(By.TAG_NAME, "td")
+                if len(colunas) >= 2:
+                    codigo = colunas[0].text.strip()
+                    nome = colunas[1].text.strip()
+                    if codigo and nome:
+                        acoes.append({
+                            "Codigo": codigo,
+                            "Nome": nome
+                        })
+            
+            if acoes:
+                # Atualizar a lista global de ativos
+                global ATIVOS_B3
+                ATIVOS_B3 = acoes
+                return acoes
+            else:
+                st.warning("⚠️ Não foi possível encontrar ações no TradingView.")
+                return []
+                
+        finally:
+            driver.quit()
             
     except Exception as e:
-        st.error(f"❌ Erro ao buscar ações: {str(e)}")
+        st.error(f"❌ Erro ao buscar ações no TradingView: {str(e)}")
         return []
 
 def buscar_acoes_brasileiras():
@@ -524,8 +560,8 @@ with st.sidebar:
 
     # Adicionar botão para buscar ações do TradingView
     if st.button("🔄 Atualizar Lista de Ações"):
-        with st.spinner('Buscando ações brasileiras...'):
-            acoes = buscar_acoes_brasileiras()
+        with st.spinner('Buscando ações no TradingView...'):
+            acoes = buscar_acoes_tradingview()
             if acoes:
                 st.success(f"✅ {len(acoes)} ações encontradas!")
             else:
