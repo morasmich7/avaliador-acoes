@@ -189,20 +189,59 @@ def buscar_codigo_por_nome(nome, df_ativos):
     return None
 
 def formatar_codigo_acao(codigo):
-    codigo = codigo.strip().upper()
-    if not codigo.endswith('.SA'):
-        codigo = f"{codigo}.SA"
-    return codigo
+    """
+    Formata o código da ação/FII para o padrão do Yahoo Finance
+    """
+    try:
+        # Remover espaços e converter para maiúsculas
+        codigo = codigo.strip().upper()
+        
+        # Verificar se o código já termina com .SA
+        if not codigo.endswith('.SA'):
+            codigo = f"{codigo}.SA"
+            
+        return codigo
+    except Exception as e:
+        st.error(f"❌ Erro ao formatar código: {str(e)}")
+        return codigo
 
 def obter_dados(codigo):
-    codigo_formatado = formatar_codigo_acao(codigo)
-    acao = yf.Ticker(codigo_formatado)
-    info = acao.info
-    historico = acao.history(period="1y")
+    try:
+        codigo_formatado = formatar_codigo_acao(codigo)
+        acao = yf.Ticker(codigo_formatado)
+        
+        # Verificar se o ativo existe
+        try:
+            info = acao.info
+            if not info:
+                st.error(f"❌ Ativo {codigo} não encontrado.")
+                return None, None
+        except Exception as e:
+            st.error(f"❌ Erro ao obter informações do ativo {codigo}: {str(e)}")
+            return None, None
+            
+        # Obter histórico com tratamento de erro
+        try:
+            historico = acao.history(period="1y")
+            if historico.empty:
+                st.warning(f"⚠️ Não foi possível obter histórico para {codigo}.")
+                return info, None
+        except Exception as e:
+            st.warning(f"⚠️ Erro ao obter histórico para {codigo}: {str(e)}")
+            return info, None
 
-    return info, historico
+        return info, historico
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao buscar dados: {str(e)}")
+        st.info("💡 Dica: Verifique se o código da ação/FII está correto e tente novamente.")
+        return None, None
 
 def mostrar_dados_fundamentais(info):
+    if info is None:
+        st.warning("⚠️ Não há dados fundamentais disponíveis para este ativo.")
+        return
+        
     st.subheader("📊 Dados Fundamentais")
     
     # Criar colunas para os dados fundamentais
@@ -210,42 +249,139 @@ def mostrar_dados_fundamentais(info):
     
     with col1:
         st.markdown("### Informações Básicas")
-        with st.container(): # Usando container para agrupar
-            st.write(f"**Empresa/FII:** {info.get('longName', 'N/A')}")
-            st.write(f"**Setor:** {info.get('sector', 'N/A')}")
-            st.write(f"**Preço atual:** R$ {info.get('previousClose', 'N/A'):.2f}")
+        with st.container():
+            try:
+                st.write(f"**Empresa/FII:** {info.get('longName', 'N/A')}")
+                st.write(f"**Setor:** {info.get('sector', 'N/A')}")
+                preco = info.get('previousClose')
+                if preco is not None:
+                    st.write(f"**Preço atual:** R$ {float(preco):.2f}")
+                else:
+                    st.write("**Preço atual:** N/A")
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao mostrar informações básicas: {str(e)}")
         
         st.markdown("### Indicadores de Valuation")
-        with st.container(): # Usando container para agrupar
-            st.write(f"**P/L:** {info.get('trailingPE', 'N/A')} *<small>(Preço/Lucro)</small>*", unsafe_allow_html=True)
-            st.write(f"**P/VPA:** {info.get('priceToBook', 'N/A')} *<small>(Preço/Valor Patrimonial)</small>*", unsafe_allow_html=True)
-            st.write(f"**EV/EBITDA:** {info.get('enterpriseToEbitda', 'N/A')} *<small>(Valor da Empresa/EBITDA)</small>*", unsafe_allow_html=True)
+        with st.container():
+            try:
+                pl = info.get('trailingPE')
+                if pl is not None:
+                    st.write(f"**P/L:** {float(pl):.2f} *<small>(Preço/Lucro)</small>*", unsafe_allow_html=True)
+                else:
+                    st.write("**P/L:** N/A")
+                    
+                p_vpa = info.get('priceToBook')
+                if p_vpa is not None:
+                    st.write(f"**P/VPA:** {float(p_vpa):.2f} *<small>(Preço/Valor Patrimonial)</small>*", unsafe_allow_html=True)
+                else:
+                    st.write("**P/VPA:** N/A")
+                    
+                ev_ebitda = info.get('enterpriseToEbitda')
+                if ev_ebitda is not None:
+                    st.write(f"**EV/EBITDA:** {float(ev_ebitda):.2f} *<small>(Valor da Empresa/EBITDA)</small>*", unsafe_allow_html=True)
+                else:
+                    st.write("**EV/EBITDA:** N/A")
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao mostrar indicadores de valuation: {str(e)}")
     
     with col2:
         st.markdown("### Indicadores de Rentabilidade")
-        with st.container(): # Usando container para agrupar
-            st.write(f"**Dividend Yield:** {round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') is not None else 'N/A'}%", unsafe_allow_html=True)
-            st.write(f"**ROE:** {round(info.get('returnOnEquity', 0) * 100, 2) if info.get('returnOnEquity') is not None else 'N/A'}%", unsafe_allow_html=True)
-            st.write(f"**Margem Bruta:** {round(info.get('grossMargins', 0) * 100, 2) if info.get('grossMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
-            st.write(f"**Margem Líquida:** {round(info.get('profitMargins', 0) * 100, 2) if info.get('profitMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
+        with st.container():
+            try:
+                dy = info.get('dividendYield')
+                if dy is not None:
+                    st.write(f"**Dividend Yield:** {float(dy) * 100:.2f}%", unsafe_allow_html=True)
+                else:
+                    st.write("**Dividend Yield:** N/A")
+                    
+                roe = info.get('returnOnEquity')
+                if roe is not None:
+                    st.write(f"**ROE:** {float(roe) * 100:.2f}%", unsafe_allow_html=True)
+                else:
+                    st.write("**ROE:** N/A")
+                    
+                margem_bruta = info.get('grossMargins')
+                if margem_bruta is not None:
+                    st.write(f"**Margem Bruta:** {float(margem_bruta) * 100:.2f}%", unsafe_allow_html=True)
+                else:
+                    st.write("**Margem Bruta:** N/A")
+                    
+                margem_liquida = info.get('profitMargins')
+                if margem_liquida is not None:
+                    st.write(f"**Margem Líquida:** {float(margem_liquida) * 100:.2f}%", unsafe_allow_html=True)
+                else:
+                    st.write("**Margem Líquida:** N/A")
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao mostrar indicadores de rentabilidade: {str(e)}")
         
         st.markdown("### Mais Indicadores de Rentabilidade")
         with st.container():
-            st.write(f"**Margem EBITDA:** {round(info.get('ebitdaMargins', 0) * 100, 2) if info.get('ebitdaMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
-            st.write(f"**Margem Operacional:** {round(info.get('operatingMargins', 0) * 100, 2) if info.get('operatingMargins') is not None else 'N/A'}%", unsafe_allow_html=True)
+            try:
+                margem_ebitda = info.get('ebitdaMargins')
+                if margem_ebitda is not None:
+                    st.write(f"**Margem EBITDA:** {float(margem_ebitda) * 100:.2f}%", unsafe_allow_html=True)
+                else:
+                    st.write("**Margem EBITDA:** N/A")
+                    
+                margem_operacional = info.get('operatingMargins')
+                if margem_operacional is not None:
+                    st.write(f"**Margem Operacional:** {float(margem_operacional) * 100:.2f}%", unsafe_allow_html=True)
+                else:
+                    st.write("**Margem Operacional:** N/A")
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao mostrar indicadores adicionais: {str(e)}")
 
         st.markdown("### Indicadores de Endividamento")
-        with st.container(): # Usando container para agrupar
-            st.write(f"**Dívida Líquida/EBITDA:** {info.get('debtToEbitda', 'N/A')}")
-            st.write(f"**Dívida/Patrimônio Líquido:** {info.get('debtToEquity', 'N/A')}") # Adicionando Dívida/PL
-            st.write(f"**Liquidez Corrente:** {info.get('currentRatio', 'N/A')}")
-            st.write(f"**Caixa Total:** R$ {info.get('totalCash', 'N/A'):,.2f}")
-            st.write(f"**Dívida Total:** R$ {info.get('totalDebt', 'N/A'):,.2f}")
+        with st.container():
+            try:
+                debt_ebitda = info.get('debtToEbitda')
+                if debt_ebitda is not None:
+                    st.write(f"**Dívida Líquida/EBITDA:** {float(debt_ebitda):.2f}")
+                else:
+                    st.write("**Dívida Líquida/EBITDA:** N/A")
+                    
+                debt_equity = info.get('debtToEquity')
+                if debt_equity is not None:
+                    st.write(f"**Dívida/Patrimônio Líquido:** {float(debt_equity):.2f}")
+                else:
+                    st.write("**Dívida/Patrimônio Líquido:** N/A")
+                    
+                liquidez = info.get('currentRatio')
+                if liquidez is not None:
+                    st.write(f"**Liquidez Corrente:** {float(liquidez):.2f}")
+                else:
+                    st.write("**Liquidez Corrente:** N/A")
+                    
+                caixa = info.get('totalCash')
+                if caixa is not None:
+                    st.write(f"**Caixa Total:** R$ {float(caixa):,.2f}")
+                else:
+                    st.write("**Caixa Total:** N/A")
+                    
+                divida = info.get('totalDebt')
+                if divida is not None:
+                    st.write(f"**Dívida Total:** R$ {float(divida):,.2f}")
+                else:
+                    st.write("**Dívida Total:** N/A")
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao mostrar indicadores de endividamento: {str(e)}")
 
         st.markdown("### Indicadores de Fluxo de Caixa")
         with st.container():
-            st.write(f"**Fluxo de Caixa Operacional:** R$ {info.get('operatingCashflow', 'N/A'):,.2f}")
-            st.write(f"**Fluxo de Caixa Livre:** R$ {info.get('freeCashflow', 'N/A'):,.2f}")
+            try:
+                fco = info.get('operatingCashflow')
+                if fco is not None:
+                    st.write(f"**Fluxo de Caixa Operacional:** R$ {float(fco):,.2f}")
+                else:
+                    st.write("**Fluxo de Caixa Operacional:** N/A")
+                    
+                fcl = info.get('freeCashflow')
+                if fcl is not None:
+                    st.write(f"**Fluxo de Caixa Livre:** R$ {float(fcl):,.2f}")
+                else:
+                    st.write("**Fluxo de Caixa Livre:** N/A")
+            except Exception as e:
+                st.warning(f"⚠️ Erro ao mostrar indicadores de fluxo de caixa: {str(e)}")
 
 def mostrar_grafico(historico):
     st.subheader("📈 Tendência de Preço")
