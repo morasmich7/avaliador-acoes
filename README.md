@@ -1,26 +1,26 @@
 # Avaliador de Ações e FIIs
 
-Aplicativo para análise fundamentalista e técnica de ações e FIIs listados na B3.
+Aplicativo Streamlit para análise fundamentalista e técnica de ações e fundos imobiliários brasileiros.
 
 ## Funcionalidades
 
 - Análise fundamentalista completa
 - Gráficos em tempo real
-- Análise técnica com indicadores
+- Análise técnica
 - Demonstrações financeiras
 - Análise setorial
-- Recomendações personalizadas por perfil de investimento
+- Recomendações personalizadas
 
 ## Como Usar
 
-1. Acesse o aplicativo através do Streamlit Cloud
+1. Acesse o aplicativo via Streamlit Cloud
 2. Digite o código da ação ou FII desejado
 3. Selecione seu perfil de investimento
-4. Explore as diferentes abas para análises detalhadas
+4. Explore as diferentes abas de análise
 
-## Dados Utilizados
+## Fontes de Dados
 
-O aplicativo busca dados de múltiplas fontes:
+O aplicativo utiliza dados de múltiplas fontes:
 - Yahoo Finance
 - Status Invest
 - Investing.com
@@ -28,9 +28,7 @@ O aplicativo busca dados de múltiplas fontes:
 
 ## Instalação Local
 
-Para rodar localmente:
-
-1. Clone o repositório
+1. Clone este repositório
 2. Instale as dependências:
 ```bash
 pip install -r requirements.txt
@@ -44,4 +42,4 @@ streamlit run avaliador_acoes.py
 
 - Python 3.8+
 - Conexão com internet
-- Navegador web moderno 
+- Dependências listadas em requirements.txt 
