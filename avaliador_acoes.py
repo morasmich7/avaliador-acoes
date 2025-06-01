@@ -4,13 +4,19 @@ import yfinance as yf
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
-from datetime import datetime, timedelta, date # Importar date
+from datetime import datetime, timedelta, date
 import unicodedata
 import os
 import requests
 from bs4 import BeautifulSoup
 import io
 import math
+import sys
+
+# Configuração específica para o Streamlit Cloud
+if 'streamlit.runtime.scriptrunner.script_run_context' in sys.modules:
+    st.set_option('deprecation.showfileUploaderEncoding', False)
+    st.set_option('deprecation.showPyplotGlobalUse', False)
 
 # Tentar importar o Selenium, se não estiver disponível, usar alternativa
 try:
@@ -26,13 +32,17 @@ try:
 except ImportError:
     SELENIUM_AVAILABLE = False
 
-# Configuração da página
-st.set_page_config(
-    page_title="Avaliador de Ações e FIIs",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Configuração da página com tratamento de erro
+try:
+    st.set_page_config(
+        page_title="Avaliador de Ações e FIIs",
+        page_icon="📈",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+except Exception as e:
+    st.error(f"Erro ao configurar a página: {str(e)}")
+    st.info("Tentando continuar com configurações padrão...")
 
 # Lista simplificada de ações e FIIs (adicione mais conforme desejar)
 ATIVOS_B3 = [
